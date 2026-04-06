@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 @theme inline {
@@ -10,17 +10,79 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
+  --font-heading: var(--font-bebas);
+  --font-body: var(--font-dm-sans);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* ── Custom breakpoints ────────────────────────────────────── */
+  --breakpoint-xs: 375px;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body, var(--font-sans, Arial, sans-serif));
+}
+
+@layer utilities {
+  /* ── Booking calendar ────────────────────────────────────── */
+  .cal-grid {
+    height: 768px; /* (20 - 8) hours × 64px */
+  }
+  .cal-booking {
+    position: absolute;
+    inset-inline: 2px;
+    border-radius: 2px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    top: var(--cal-top, 0px);
+    height: var(--cal-height, 32px);
+    background-color: var(--cal-bg, rgba(99, 102, 241, 0.2));
+    border-left: 2px solid var(--cal-color, #6366f1);
+  }
+  .cal-booking:hover { opacity: 0.85; }
+  .cal-booking-text {
+    color: var(--cal-color, #6366f1);
+  }
+  /* ── Staff / service colour tokens ──────────────────────────── */
+  .staff-avatar {
+    background: var(--staff-colour, #6366f1);
+  }
+  .service-colour-bar {
+    background: var(--service-colour, #6366f1);
+  }
+
+  .cal-hour-line {
+    position: absolute;
+    width: 100%;
+    top: var(--cal-hour-top, 0px);
+  }
+  .cal-time-label {
+    position: absolute;
+    width: 100%;
+    top: var(--cal-label-top, 0px);
+  }
+
+  /* ── Confetti fall animation ────────────────────────────── */
+  @keyframes confetti-fall {
+    0%   { transform: translateY(-10px) rotate(0deg);   opacity: 1; }
+    100% { transform: translateY(100vh)  rotate(720deg); opacity: 0; }
+  }
+
+  /* ── Marketing ──────────────────────────────────────────── */
+  .hero-glow {
+    background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(201, 168, 76, 0.07) 0%, transparent 70%);
+  }
+  .hero-pattern {
+    background-image: repeating-linear-gradient(
+      135deg,
+      transparent,
+      transparent 40px,
+      rgba(201, 168, 76, 0.015) 40px,
+      rgba(201, 168, 76, 0.015) 41px
+    );
+  }
+  .hero-fade-bottom {
+    background: linear-gradient(to bottom, transparent, #0a0a0a);
+  }
 }
