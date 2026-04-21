@@ -8,8 +8,9 @@ import type Stripe from 'stripe'
 
 export const dynamic = 'force-dynamic'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-const FROM   = process.env.RESEND_FROM_EMAIL!
+function getResend() {
+  return { resend: new Resend(process.env.RESEND_API_KEY), FROM: process.env.RESEND_FROM_EMAIL! }
+}
 
 // ── Billing email helpers ─────────────────────────────────────────────────
 
@@ -31,6 +32,7 @@ function sendPaymentFailedEmail(to: string, amount: number, currency: string, ne
       <a href="${process.env.NEXT_PUBLIC_APP_URL}/settings/billing" style="display:inline-block;margin-top:20px;background:#c9a84c;color:#000;text-decoration:none;font-weight:700;font-size:13px;padding:12px 24px;border-radius:8px;">UPDATE PAYMENT METHOD</a>
     </div>
   </body></html>`
+  const { resend, FROM } = getResend()
   resend.emails.send({ from: FROM, to, subject: '⚠️ BarberBoost payment failed — action required', html }).catch(() => {})
 }
 
@@ -46,6 +48,7 @@ function sendPaymentReceiptEmail(to: string, amount: number, currency: string, i
       ${invoiceUrl ? `<a href="${invoiceUrl}" style="display:inline-block;margin-top:20px;background:#c9a84c;color:#000;text-decoration:none;font-weight:700;font-size:13px;padding:12px 24px;border-radius:8px;">VIEW INVOICE</a>` : ''}
     </div>
   </body></html>`
+  const { resend, FROM } = getResend()
   resend.emails.send({ from: FROM, to, subject: 'BarberBoost payment receipt', html }).catch(() => {})
 }
 

@@ -6,8 +6,6 @@ import { welcomeEmail } from '@/lib/email/templates'
 
 export const dynamic = 'force-dynamic'
 
-const resend  = new Resend(process.env.RESEND_API_KEY)
-const FROM    = process.env.RESEND_FROM_EMAIL!
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://barberboost.com'
 const SUPPORT = process.env.SUPPORT_EMAIL ?? 'support@barberboost.com'
 
@@ -86,6 +84,8 @@ export async function GET(request: NextRequest) {
       })
 
       if (user.email) {
+        const resend = new Resend(process.env.RESEND_API_KEY)
+        const FROM   = process.env.RESEND_FROM_EMAIL!
         resend.emails.send({ from: FROM, to: user.email, subject: payload.subject, html: payload.html })
           .catch(() => {})
       }

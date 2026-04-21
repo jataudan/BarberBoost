@@ -3,8 +3,6 @@ import { Resend } from 'resend'
 import { createClient } from '@/lib/supabase/server'
 import { lowStockAlert } from '@/lib/email/templates'
 
-const resend  = new Resend(process.env.RESEND_API_KEY)
-const FROM    = process.env.RESEND_FROM_EMAIL ?? 'inventory@barberboost.com'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://barberboost.com'
 
 // ── Low-stock email helper ────────────────────────────────────────────────
@@ -32,6 +30,8 @@ function sendLowStockEmail(
     }],
     dashboardUrl: `${APP_URL}/inventory`,
   })
+  const resend = new Resend(process.env.RESEND_API_KEY)
+  const FROM   = process.env.RESEND_FROM_EMAIL ?? 'inventory@barberboost.com'
   resend.emails.send({ from: FROM, to: ownerEmail, subject: payload.subject, html: payload.html })
     .catch(() => {})  // non-fatal
 }

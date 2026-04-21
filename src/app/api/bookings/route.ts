@@ -6,9 +6,6 @@ import type { PlanId } from '@/lib/stripe/plans'
 import { bookingConfirmation, bookingCancellation, type BookingEmailData } from '@/lib/email/templates'
 import { format } from 'date-fns'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-const FROM   = process.env.RESEND_FROM_EMAIL ?? 'bookings@barberboost.com'
-
 // ── Helpers ───────────────────────────────────────────────────────────────
 function formatTime12h(timeStr: string): string {
   const [h, m] = timeStr.split(':').map(Number)
@@ -22,7 +19,9 @@ async function sendBookingEmail(
   data: BookingEmailData
 ) {
   try {
-    await resend.emails.send({ from: FROM, to, ...template(data) })
+    const resend = new Resend(process.env.RESEND_API_KEY)
+    const from   = process.env.RESEND_FROM_EMAIL ?? 'bookings@barberboost.com'
+    await resend.emails.send({ from, to, ...template(data) })
   } catch {
     // Non-fatal: log and continue
     console.error('[email] failed to send booking email')

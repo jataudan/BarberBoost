@@ -7,9 +7,6 @@ import { bookingConfirmation, type BookingEmailData } from '@/lib/email/template
 import { format, parseISO } from 'date-fns'
 import { rateLimit } from '@/lib/rate-limit'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-const FROM   = process.env.RESEND_FROM_EMAIL ?? 'bookings@barberboost.com'
-
 function fmtTime12h(t: string): string {
   const [h, m] = t.split(':').map(Number)
   const d = new Date(); d.setHours(h, m, 0, 0)
@@ -212,6 +209,8 @@ export async function POST(request: NextRequest) {
     bookingPageUrl:  `${appUrl}/booking/${shop_id}`,
   }
 
+  const resend = new Resend(process.env.RESEND_API_KEY)
+  const FROM   = process.env.RESEND_FROM_EMAIL ?? 'bookings@barberboost.com'
   resend.emails.send({
     from:    FROM,
     to:      client_email.trim(),
