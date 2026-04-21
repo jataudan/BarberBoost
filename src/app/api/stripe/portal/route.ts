@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { stripe } from '@/lib/stripe/config'
+import { getStripe } from '@/lib/stripe/config'
 import { createClient } from '@/lib/supabase/server'
 
 export async function POST() {
@@ -34,7 +34,7 @@ export async function POST() {
       return NextResponse.json({ error: 'No billing account found' }, { status: 404 })
     }
 
-    const portalSession = await stripe.billingPortal.sessions.create({
+    const portalSession = await getStripe().billingPortal.sessions.create({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       customer: (subscription as any).stripe_customer_id,
       return_url: `${process.env.NEXT_PUBLIC_APP_URL}/settings/billing`,

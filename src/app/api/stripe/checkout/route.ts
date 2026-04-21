@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { stripe } from '@/lib/stripe/config'
+import { getStripe } from '@/lib/stripe/config'
 import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: Request) {
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     // Get shop for metadata
     const { data: shop } = await supabase.from('shops').select('id').eq('owner_id', user.id).single()
 
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       mode:                 'subscription',
       payment_method_types: ['card'],
       line_items:           [{ price: priceId, quantity: 1 }],

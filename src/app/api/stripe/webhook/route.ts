@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { Resend } from 'resend'
-import { stripe } from '@/lib/stripe/config'
+import { getStripe } from '@/lib/stripe/config'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getPlanByPriceId } from '@/lib/stripe/plans'
 import type Stripe from 'stripe'
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
 
   let event: Stripe.Event
   try {
-    event = stripe.webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET!)
+    event = getStripe().webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET!)
   } catch (err) {
     console.error('Webhook signature verification failed:', err)
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
     case 'checkout.session.completed': {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const session      = event.data.object as any
-      const subscription = await stripe.subscriptions.retrieve(session.subscription as string)
+      const subscription = await getStripe().subscriptions.retrieve(session.subscription as string)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sub          = subscription as any
       const priceId      = sub.items.data[0].price.id
