@@ -84,8 +84,10 @@ export function BookingsList({ shopId, currency, dateFrom, dateTo, onEdit }: Boo
 
   useEffect(() => { load(1); setPage(1) }, [shopId, dateFromLocal, dateToLocal, staffFilter, statusFilter, serviceFilter])
 
-  function formatTime12h(t: string) {
+  function formatTime12h(t: string | null | undefined) {
+    if (!t) return '—'
     const [h, m] = t.split(':').map(Number)
+    if (isNaN(h) || isNaN(m)) return t
     const d = new Date(); d.setHours(h, m)
     return format(d, 'h:mm a')
   }
@@ -203,7 +205,7 @@ export function BookingsList({ shopId, currency, dateFrom, dateTo, onEdit }: Boo
                     <tr key={booking.id} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors last:border-b-0">
                       <td className="px-4 py-3 pl-5">
                         <p className="text-xs font-mono text-white">{formatTime12h(booking.start_time)}</p>
-                        <p className="text-[10px] text-zinc-600 mt-0.5">{format(parseISO(booking.date), 'd MMM')}</p>
+                        <p className="text-[10px] text-zinc-600 mt-0.5">{booking.date ? format(parseISO(booking.date), 'd MMM') : '—'}</p>
                       </td>
                       <td className="px-4 py-3">
                         <p className="text-sm text-white truncate max-w-[130px]">{booking.client_name}</p>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { format, parseISO } from 'date-fns'
+import { format, parseISO, isValid } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
@@ -154,7 +154,8 @@ export function BookingsDayView({ shopId, date, currency, onSlotClick, onBooking
     })
   }, [shopId, date])
 
-  const dateLabel = format(parseISO(date), 'EEEE, d MMMM yyyy')
+  const parsedDate = parseISO(date)
+  const dateLabel  = isValid(parsedDate) ? format(parsedDate, 'EEEE, d MMMM yyyy') : date
 
   if (loading) {
     return (
@@ -178,10 +179,10 @@ export function BookingsDayView({ shopId, date, currency, onSlotClick, onBooking
       <div ref={headerRef} className="grid border-b border-white/[0.06]">
         <div className="border-r border-white/[0.04] py-3 px-2 text-center">
           <p className="text-[9px] text-zinc-600 uppercase tracking-wider">
-            {format(parseISO(date), 'MMM')}
+            {isValid(parsedDate) ? format(parsedDate, 'MMM') : ''}
           </p>
-          <p className="text-lg font-bold text-white leading-tight">{format(parseISO(date), 'd')}</p>
-          <p className="text-[9px] text-zinc-600">{format(parseISO(date), 'EEE')}</p>
+          <p className="text-lg font-bold text-white leading-tight">{isValid(parsedDate) ? format(parsedDate, 'd') : ''}</p>
+          <p className="text-[9px] text-zinc-600">{isValid(parsedDate) ? format(parsedDate, 'EEE') : ''}</p>
         </div>
         {staff.map((s) => (
           <div key={s.id} className="py-3 px-3 border-r border-white/[0.04] last:border-r-0 text-center">
