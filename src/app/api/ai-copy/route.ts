@@ -1,9 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rate-limit'
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 const SEGMENT_LABELS: Record<string, string> = {
   all:      'all existing clients',
@@ -83,6 +80,8 @@ Requirements:
 Respond with ONLY valid JSON matching this exact structure — no markdown, no extra text:
 {"subjects":["...","...","..."],"emailBody":"...","smsMessage":"..."}`
 
+  const { default: Anthropic } = await import('@anthropic-ai/sdk')
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   const message = await anthropic.messages.create({
     model:      'claude-haiku-4-5-20251001',
     max_tokens: 1024,
