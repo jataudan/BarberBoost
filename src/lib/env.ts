@@ -35,9 +35,9 @@ const envSchema = z.object({
 })
 
 // Validate env vars on the server at runtime.
-// Skipped during `next build` (NEXT_PHASE=phase-production-build) so that
-// local/CI builds work without real credentials — validation still runs
-// on every real server request in production via the root layout import.
+// Skipped during `next build` (NEXT_PHASE=phase-production-build).
+// In production, logs warnings rather than throwing so a missing optional
+// var doesn't crash every page — fix the var in Vercel and redeploy.
 function validateEnv() {
   if (typeof window !== 'undefined') return  // client — skip
   if (process.env.NEXT_PHASE === 'phase-production-build') return  // build — skip
@@ -49,10 +49,16 @@ function validateEnv() {
       .map(i => `  • ${String(i.path[0])}: ${i.message}`)
       .join('\n')
 
-    throw new Error(
+    const message =
       `\n\n❌ Missing or invalid environment variables:\n${missing}\n\n` +
-      `Copy .env.example to .env.local and fill in the values.\n`
-    )
+      `Set these in Vercel → Project → Settings → Environment Variables.\n`
+
+    if (process.env.NODE_ENV === 'production') {
+      // Warn but don't crash — app may still function with partial config
+      console.error(message)
+    } else {
+      throw new Error(message)
+    }
   }
 }
 
