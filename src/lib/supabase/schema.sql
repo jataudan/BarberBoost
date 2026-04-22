@@ -422,7 +422,7 @@ BEGIN
     'My Barbershop'
   );
 
-  -- Build a URL-safe slug, append first 8 chars of user id to guarantee uniqueness
+  -- Build a URL-safe slug; append first 8 chars of user id to guarantee uniqueness
   raw_slug := LOWER(
     REGEXP_REPLACE(
       REGEXP_REPLACE(raw_name, '[^a-zA-Z0-9\s-]', '', 'g'),
@@ -430,16 +430,21 @@ BEGIN
     )
   ) || '-' || SUBSTRING(NEW.id::text, 1, 8);
 
-  INSERT INTO shops (owner_id, name, slug, email)
+  -- Ensure slug is never empty (e.g. shop name was all special characters)
+  IF raw_slug IS NULL OR raw_slug = '' OR raw_slug = '-' || SUBSTRING(NEW.id::text, 1, 8) THEN
+    raw_slug := 'shop-' || SUBSTRING(NEW.id::text, 1, 8);
+  END IF;
+
+  INSERT INTO public.shops (owner_id, name, slug, email)
   VALUES (NEW.id, raw_name, raw_slug, NEW.email)
   RETURNING id INTO new_shop_id;
 
-  INSERT INTO subscriptions (shop_id, owner_id, plan, status)
-  VALUES (new_shop_id, NEW.id, 'free', 'active');
+  INSERT INTO public.subscriptions (shop_id, owner_id, plan, status, trial_end)
+  VALUES (new_shop_id, NEW.id, 'pro', 'trialing', NOW() + INTERVAL '14 days');
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Drop trigger if it already exists (safe to re-run)
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
