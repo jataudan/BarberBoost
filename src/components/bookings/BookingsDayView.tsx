@@ -34,8 +34,10 @@ function hexToRgba20(hex: string): string {
   if (c.length !== 6) return 'rgba(99,102,241,0.2)'
   return `rgba(${parseInt(c.slice(0,2),16)},${parseInt(c.slice(2,4),16)},${parseInt(c.slice(4,6),16)},0.2)`
 }
-function format12h(t: string) {
+function format12h(t: string | null | undefined) {
+  if (!t) return '—'
   const [h, m] = t.split(':').map(Number)
+  if (isNaN(h) || isNaN(m)) return t
   const d = new Date(); d.setHours(h, m)
   return format(d, 'h:mm a')
 }

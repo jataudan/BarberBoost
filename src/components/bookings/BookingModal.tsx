@@ -34,8 +34,10 @@ function timeToMinutes(t: string) {
 function minutesToTime(m: number) {
   return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}:00`
 }
-function format12h(t: string) {
+function format12h(t: string | null | undefined) {
+  if (!t) return '—'
   const [h, m] = t.split(':').map(Number)
+  if (isNaN(h) || isNaN(m)) return t
   const d = new Date(); d.setHours(h, m)
   return format(d, 'h:mm a')
 }
