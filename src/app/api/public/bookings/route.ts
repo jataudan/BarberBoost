@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { Resend } from 'resend'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { PLANS } from '@/lib/stripe/plans'
 import type { PlanId } from '@/lib/stripe/plans'
@@ -209,13 +208,15 @@ export async function POST(request: NextRequest) {
     bookingPageUrl:  `${appUrl}/booking/${shop_id}`,
   }
 
-  const resend = new Resend(process.env.RESEND_API_KEY)
-  const FROM   = process.env.RESEND_FROM_EMAIL ?? 'bookings@barberboost.com'
-  resend.emails.send({
-    from:    FROM,
-    to:      client_email.trim(),
-    subject: bookingConfirmation(emailData).subject,
-    html:    bookingConfirmation(emailData).html,
+  import('resend').then(({ Resend: ResendClient }) => {
+    const resend = new ResendClient(process.env.RESEND_API_KEY)
+    const FROM   = process.env.RESEND_FROM_EMAIL ?? 'bookings@barberboost.com'
+    resend.emails.send({
+      from:    FROM,
+      to:      client_email.trim(),
+      subject: bookingConfirmation(emailData).subject,
+      html:    bookingConfirmation(emailData).html,
+    }).catch(() => {})
   }).catch(() => {}) // non-fatal
 
   return NextResponse.json({

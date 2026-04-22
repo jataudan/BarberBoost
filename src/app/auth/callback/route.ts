@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { Resend } from 'resend'
 import { welcomeEmail } from '@/lib/email/templates'
 
 export const dynamic = 'force-dynamic'
@@ -84,7 +83,8 @@ export async function GET(request: NextRequest) {
       })
 
       if (user.email) {
-        const resend = new Resend(process.env.RESEND_API_KEY)
+        const { Resend: ResendClient } = await import('resend')
+        const resend = new ResendClient(process.env.RESEND_API_KEY)
         const FROM   = process.env.RESEND_FROM_EMAIL!
         resend.emails.send({ from: FROM, to: user.email, subject: payload.subject, html: payload.html })
           .catch(() => {})

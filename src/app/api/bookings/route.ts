@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { Resend } from 'resend'
 import { createClient } from '@/lib/supabase/server'
 import { PLANS } from '@/lib/stripe/plans'
 import type { PlanId } from '@/lib/stripe/plans'
@@ -19,7 +18,8 @@ async function sendBookingEmail(
   data: BookingEmailData
 ) {
   try {
-    const resend = new Resend(process.env.RESEND_API_KEY)
+    const { Resend: ResendClient } = await import('resend')
+    const resend = new ResendClient(process.env.RESEND_API_KEY)
     const from   = process.env.RESEND_FROM_EMAIL ?? 'bookings@barberboost.com'
     await resend.emails.send({ from, to, ...template(data) })
   } catch {

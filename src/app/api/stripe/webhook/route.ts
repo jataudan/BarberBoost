@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
-import { Resend } from 'resend'
 import { getStripe } from '@/lib/stripe/config'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getPlanByPriceId } from '@/lib/stripe/plans'
@@ -8,8 +7,9 @@ import type Stripe from 'stripe'
 
 export const dynamic = 'force-dynamic'
 
-function getResend() {
-  return { resend: new Resend(process.env.RESEND_API_KEY), FROM: process.env.RESEND_FROM_EMAIL! }
+async function getResend() {
+  const { Resend: ResendClient } = await import('resend')
+  return { resend: new ResendClient(process.env.RESEND_API_KEY), FROM: process.env.RESEND_FROM_EMAIL! }
 }
 
 // ── Billing email helpers ─────────────────────────────────────────────────
@@ -18,7 +18,7 @@ function fmtAmount(amount: number, currency: string) {
   return new Intl.NumberFormat('en-GB', { style: 'currency', currency: currency.toUpperCase(), minimumFractionDigits: 2 }).format(amount / 100)
 }
 
-function sendPaymentFailedEmail(to: string, amount: number, currency: string, nextRetry: string | null) {
+async function sendPaymentFailedEmail(to: string, amount: number, currency: string, nextRetry: string | null) {
   const html = `<!DOCTYPE html><html><body style="margin:0;padding:32px;background:#0f0f0f;font-family:Helvetica,Arial,sans-serif;color:#e4e4e7;">
     <div style="max-width:520px;margin:0 auto;background:#1a1a1a;border:1px solid #27272a;border-radius:12px;padding:32px;">
       <div style="text-align:center;margin-bottom:24px;">
@@ -32,11 +32,11 @@ function sendPaymentFailedEmail(to: string, amount: number, currency: string, ne
       <a href="${process.env.NEXT_PUBLIC_APP_URL}/settings/billing" style="display:inline-block;margin-top:20px;background:#c9a84c;color:#000;text-decoration:none;font-weight:700;font-size:13px;padding:12px 24px;border-radius:8px;">UPDATE PAYMENT METHOD</a>
     </div>
   </body></html>`
-  const { resend, FROM } = getResend()
+  const { resend, FROM } = await getResend()
   resend.emails.send({ from: FROM, to, subject: '⚠️ BarberBoost payment failed — action required', html }).catch(() => {})
 }
 
-function sendPaymentReceiptEmail(to: string, amount: number, currency: string, invoiceUrl: string | null) {
+async function sendPaymentReceiptEmail(to: string, amount: number, currency: string, invoiceUrl: string | null) {
   const html = `<!DOCTYPE html><html><body style="margin:0;padding:32px;background:#0f0f0f;font-family:Helvetica,Arial,sans-serif;color:#e4e4e7;">
     <div style="max-width:520px;margin:0 auto;background:#1a1a1a;border:1px solid #27272a;border-radius:12px;padding:32px;">
       <div style="text-align:center;margin-bottom:24px;">
@@ -48,7 +48,7 @@ function sendPaymentReceiptEmail(to: string, amount: number, currency: string, i
       ${invoiceUrl ? `<a href="${invoiceUrl}" style="display:inline-block;margin-top:20px;background:#c9a84c;color:#000;text-decoration:none;font-weight:700;font-size:13px;padding:12px 24px;border-radius:8px;">VIEW INVOICE</a>` : ''}
     </div>
   </body></html>`
-  const { resend, FROM } = getResend()
+  const { resend, FROM } = await getResend()
   resend.emails.send({ from: FROM, to, subject: 'BarberBoost payment receipt', html }).catch(() => {})
 }
 

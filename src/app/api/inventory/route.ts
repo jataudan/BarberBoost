@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { Resend } from 'resend'
 import { createClient } from '@/lib/supabase/server'
 import { lowStockAlert } from '@/lib/email/templates'
 
@@ -30,10 +29,12 @@ function sendLowStockEmail(
     }],
     dashboardUrl: `${APP_URL}/inventory`,
   })
-  const resend = new Resend(process.env.RESEND_API_KEY)
-  const FROM   = process.env.RESEND_FROM_EMAIL ?? 'inventory@barberboost.com'
-  resend.emails.send({ from: FROM, to: ownerEmail, subject: payload.subject, html: payload.html })
-    .catch(() => {})  // non-fatal
+  import('resend').then(({ Resend: ResendClient }) => {
+    const resend = new ResendClient(process.env.RESEND_API_KEY)
+    const FROM   = process.env.RESEND_FROM_EMAIL ?? 'inventory@barberboost.com'
+    resend.emails.send({ from: FROM, to: ownerEmail, subject: payload.subject, html: payload.html })
+      .catch(() => {})
+  }).catch(() => {})
 }
 
 // ── GET — list inventory ──────────────────────────────────────────────────
