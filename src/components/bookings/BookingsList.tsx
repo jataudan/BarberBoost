@@ -371,7 +371,7 @@ function BookingsEmptyState({ hasFilters }: { hasFilters: boolean }) {
         </p>
       </div>
       {!hasFilters && (
-        <Link href="/bookings/new"
+        <Link href="/bookings"
           className="flex items-center gap-2 bg-[#c9a84c] hover:bg-[#e2bf6a] text-[#0a0a0a] font-bold text-sm rounded-xl px-5 py-2.5 transition-colors">
           <Plus className="w-4 h-4" />Add First Booking
         </Link>

@@ -56,14 +56,14 @@ export function Header({ shopId, notificationCount, onMenuOpen }: HeaderProps) {
       <div className="flex items-center gap-2 flex-shrink-0">
         {/* Quick-add booking */}
         <Link
-          href="/bookings/new"
+          href="/bookings"
           className="hidden sm:flex items-center gap-1.5 bg-[#c9a84c] hover:bg-[#e2bf6a] text-[#0a0a0a] text-xs font-bold rounded-lg px-3 py-1.5 transition-colors"
         >
           <Plus className="w-3.5 h-3.5" />
           New Booking
         </Link>
         <Link
-          href="/bookings/new"
+          href="/bookings"
           aria-label="New booking"
           className="sm:hidden w-8 h-8 rounded-lg bg-[#c9a84c] hover:bg-[#e2bf6a] text-[#0a0a0a] flex items-center justify-center transition-colors"
         >
