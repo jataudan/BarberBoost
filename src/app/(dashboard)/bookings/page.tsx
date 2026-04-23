@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useEffect } from 'react'
 import {
-  format, addDays, subDays, startOfWeek, parseISO, isToday,
+  format, addDays, subDays, startOfWeek, parseISO, isToday, isValid,
 } from 'date-fns'
 import { ChevronLeft, ChevronRight, List, Grid2x2, CalendarDays, Plus, CalendarCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -67,7 +67,8 @@ export default function BookingsPage() {
     setCurrency(getStoredCurrency())
   }, [])
 
-  const weekStart = startOfWeek(parseISO(date), { weekStartsOn: 1 })
+  const parsedDate = parseISO(date)
+  const weekStart  = isValid(parsedDate) ? startOfWeek(parsedDate, { weekStartsOn: 1 }) : startOfWeek(new Date(), { weekStartsOn: 1 })
   const todayDate  = format(new Date(), 'yyyy-MM-dd')
   const isThisDate = date === todayDate
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { format, parseISO } from 'date-fns'
+import { format, parseISO, isValid } from 'date-fns'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useBookings, type BookingFilters } from '@/hooks/useBookings'
@@ -205,7 +205,7 @@ export function BookingsList({ shopId, currency, dateFrom, dateTo, onEdit }: Boo
                     <tr key={booking.id} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors last:border-b-0">
                       <td className="px-4 py-3 pl-5">
                         <p className="text-xs font-mono text-white">{formatTime12h(booking.start_time)}</p>
-                        <p className="text-[10px] text-zinc-600 mt-0.5">{booking.date ? format(parseISO(booking.date), 'd MMM') : '—'}</p>
+                        <p className="text-[10px] text-zinc-600 mt-0.5">{(() => { if (!booking.date) return '—'; const d = parseISO(booking.date); return isValid(d) ? format(d, 'd MMM') : '—'; })()}</p>
                       </td>
                       <td className="px-4 py-3">
                         <p className="text-sm text-white truncate max-w-[130px]">{booking.client_name}</p>
