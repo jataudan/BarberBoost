@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import {
   format, addDays, subDays, startOfWeek, parseISO, isToday,
 } from 'date-fns'
@@ -58,9 +58,14 @@ export default function BookingsPage() {
   const [modalInitTime,  setModalInitTime]  = useState<string | undefined>()
   const [modalInitStaff, setModalInitStaff] = useState<string | undefined>()
 
-  // Lazy-loaded from localStorage (avoids SSR mismatch)
-  const [shopId]   = useState(getStoredShopId)
-  const [currency] = useState(getStoredCurrency)
+  // Populated after mount to avoid SSR/client hydration mismatch
+  const [shopId,   setShopId]   = useState('')
+  const [currency, setCurrency] = useState('GBP')
+
+  useEffect(() => {
+    setShopId(getStoredShopId())
+    setCurrency(getStoredCurrency())
+  }, [])
 
   const weekStart = startOfWeek(parseISO(date), { weekStartsOn: 1 })
   const todayDate  = format(new Date(), 'yyyy-MM-dd')
