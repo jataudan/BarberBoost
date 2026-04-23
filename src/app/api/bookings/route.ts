@@ -20,11 +20,13 @@ async function sendBookingEmail(
   try {
     const { Resend: ResendClient } = await import('resend')
     const resend = new ResendClient(process.env.RESEND_API_KEY)
-    const from   = process.env.RESEND_FROM_EMAIL ?? 'bookings@barberboost.com'
-    await resend.emails.send({ from, to, ...template(data) })
-  } catch {
-    // Non-fatal: log and continue
-    console.error('[email] failed to send booking email')
+    const from   = process.env.RESEND_FROM_EMAIL ?? 'BarberBoost <noreply@barberboost.com>'
+    const { error } = await resend.emails.send({ from, to, ...template(data) })
+    if (error) {
+      console.error('[email] Resend API error:', error.name, error.message)
+    }
+  } catch (err) {
+    console.error('[email] failed to send booking email:', err)
   }
 }
 
