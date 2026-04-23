@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     }
 
     const { data: result, error } = await resend.emails.send({
-      from: 'BarberBoost <noreply@barberboost.com>',
+      from: process.env.RESEND_FROM_EMAIL ?? 'BarberBoost <noreply@barberboost.app>',
       to,
       subject: template.subject,
       html: template.html,
