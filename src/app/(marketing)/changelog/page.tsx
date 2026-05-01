@@ -9,10 +9,40 @@ export const metadata: Metadata = {
 
 const RELEASES = [
   {
-    version: 'v1.4.2',
-    date: 'April 2026',
+    version: 'v1.5.0',
+    date: 'May 2026',
     label: 'Latest',
     labelColor: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400',
+    title: 'Booking References & Marketing Site',
+    summary: 'Every booking now has a unique reference code, making client enquiries instant. The full marketing site ships alongside this — Help Centre, API docs, legal pages, and more.',
+    changes: [
+      {
+        type: 'New',
+        items: [
+          'Booking references (BB-XXXXXXXX) — unique code on every booking, shown in the list, detail panel, and client emails',
+          'Reference-based search — paste a BB- code to jump directly to any booking with no scrolling',
+          'Help Centre with setup guide, daily workflow, common how-to cards, and 35+ FAQ entries',
+          'API reference documentation (Empire plan)',
+          'Live system status page with 90-day uptime history',
+          'Roadmap, Changelog, Blog, Careers, Community, and About pages',
+          'Full legal suite — Privacy Policy, Terms of Service, Cookie Policy, GDPR page',
+          'Contact form wired to support inbox via Resend',
+        ],
+      },
+      {
+        type: 'Fixed',
+        items: [
+          'Public online bookings now correctly include booking_ref in confirmation emails',
+          'Help Centre "Bookings & Clients" nav card linked to the wrong FAQ section',
+        ],
+      },
+    ],
+  },
+  {
+    version: 'v1.4.2',
+    date: 'April 2026',
+    label: 'Patch',
+    labelColor: 'bg-zinc-500/10 border-zinc-500/30 text-zinc-400',
     title: 'Email & Bookings Stability',
     summary: 'Hardened the email delivery layer and fixed a series of edge-case crashes in the bookings view.',
     changes: [
