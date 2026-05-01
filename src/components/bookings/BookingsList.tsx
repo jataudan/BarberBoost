@@ -8,7 +8,7 @@ import { useBookings, type BookingFilters } from '@/hooks/useBookings'
 import { cn } from '@/lib/utils'
 import {
   ChevronLeft, ChevronRight, CheckCircle, XCircle, Clock,
-  Loader2, Filter, RefreshCw, MoreHorizontal, Edit, Trash2, Calendar, Plus,
+  Loader2, Filter, RefreshCw, MoreHorizontal, Edit, Trash2, Calendar, Plus, Search,
 } from 'lucide-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { BookingDetailModal } from '@/components/bookings/BookingDetailModal'
@@ -62,6 +62,7 @@ export function BookingsList({ shopId, currency, dateFrom, dateTo, onEdit }: Boo
   }
 
   // Filter state
+  const [searchQuery,   setSearchQuery]   = useState('')
   const [staffFilter,   setStaffFilter]   = useState('')
   const [statusFilter,  setStatusFilter]  = useState<BookingStatus | ''>('')
   const [serviceFilter, setServiceFilter] = useState('')
@@ -84,6 +85,7 @@ export function BookingsList({ shopId, currency, dateFrom, dateTo, onEdit }: Boo
 
   const load = (p = page) => {
     const filters: BookingFilters = { page: p, limit: 20 }
+    if (searchQuery)   filters.search     = searchQuery
     if (dateFromLocal) filters.date_from  = dateFromLocal
     if (dateToLocal)   filters.date_to    = dateToLocal
     if (staffFilter)   filters.staff_id   = staffFilter
@@ -92,7 +94,7 @@ export function BookingsList({ shopId, currency, dateFrom, dateTo, onEdit }: Boo
     fetchBookings(shopId, filters)
   }
 
-  useEffect(() => { load(1); setPage(1) }, [shopId, dateFromLocal, dateToLocal, staffFilter, statusFilter, serviceFilter])
+  useEffect(() => { load(1); setPage(1) }, [shopId, searchQuery, dateFromLocal, dateToLocal, staffFilter, statusFilter, serviceFilter])
 
   function formatTime12h(t: string | null | undefined) {
     if (!t) return '—'
@@ -111,6 +113,18 @@ export function BookingsList({ shopId, currency, dateFrom, dateTo, onEdit }: Boo
 
   return (
     <div className="space-y-4">
+      {/* Search bar */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none" />
+        <input
+          type="search"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search by client name or booking reference (BB-…)"
+          className="w-full bg-[#111111] border border-white/[0.06] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-600 outline-none focus:border-[#c9a84c]/40 focus:ring-1 focus:ring-[#c9a84c]/15 transition-all"
+        />
+      </div>
+
       {/* Filter bar */}
       <div className="flex items-center gap-2 flex-wrap">
         <button
@@ -219,9 +233,12 @@ export function BookingsList({ shopId, currency, dateFrom, dateTo, onEdit }: Boo
                       </td>
                       <td className="px-4 py-3">
                         <p className="text-sm text-white truncate max-w-[130px]">{booking.client_name}</p>
-                        {booking.client_email && (
-                          <p className="text-[10px] text-zinc-600 truncate max-w-[130px]">{booking.client_email}</p>
-                        )}
+                        {booking.booking_ref
+                          ? <p className="text-[10px] font-mono text-[#c9a84c]/70 mt-0.5">{booking.booking_ref}</p>
+                          : booking.client_email && (
+                            <p className="text-[10px] text-zinc-600 truncate max-w-[130px]">{booking.client_email}</p>
+                          )
+                        }
                       </td>
                       <td className="px-4 py-3">
                         <p className="text-sm text-zinc-300 truncate max-w-[120px]">{service?.name ?? '—'}</p>

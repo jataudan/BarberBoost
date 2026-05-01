@@ -72,6 +72,7 @@ export interface BookingEmailData {
   price: number
   currency: string
   bookingId: string
+  bookingRef: string   // human-readable reference, e.g. "BB-A3F91C2B"
   depositAmount?: number
   bookingPageUrl?: string
 }
@@ -84,10 +85,17 @@ export function bookingConfirmation(data: BookingEmailData) {
     : null
 
   const content = `
-    <div style="text-align:center;margin-bottom:28px;">
+    <div style="text-align:center;margin-bottom:24px;">
       <div style="display:inline-block;width:48px;height:48px;background:rgba(201,168,76,0.12);border-radius:50%;border:1px solid rgba(201,168,76,0.25);line-height:48px;font-size:24px;margin-bottom:12px;">✓</div>
       <h1 style="margin:0;font-size:22px;font-weight:700;color:${TEXT};letter-spacing:0.04em;">Booking Confirmed</h1>
       <p style="margin:8px 0 0;font-size:14px;color:${MUTED};">Hi ${data.clientName}, see you soon!</p>
+    </div>
+
+    <!-- Booking reference block -->
+    <div style="background:#0f0f0f;border:1px solid ${BORDER};border-radius:10px;padding:16px;text-align:center;margin-bottom:24px;">
+      <p style="margin:0;font-size:11px;color:${MUTED};letter-spacing:0.1em;text-transform:uppercase;">Booking Reference</p>
+      <p style="margin:6px 0 0;font-size:24px;font-weight:700;color:${GOLD};font-family:'Courier New',Courier,monospace;letter-spacing:0.12em;">${data.bookingRef}</p>
+      <p style="margin:6px 0 0;font-size:11px;color:${MUTED};">Quote this reference when contacting us</p>
     </div>
 
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
@@ -101,15 +109,13 @@ export function bookingConfirmation(data: BookingEmailData) {
       ${data.shopAddress ? detailRow('Location', data.shopAddress) : ''}
     </table>
 
-    ${data.bookingPageUrl ? ctaButton('MANAGE BOOKING', `${data.bookingPageUrl}?ref=${data.bookingId}`) : ''}
-
     <p style="margin-top:24px;font-size:13px;color:${MUTED};line-height:1.6;">
       Need to cancel or reschedule? Please contact us at least 24 hours in advance.
       ${data.shopPhone ? `Call us on <a href="tel:${data.shopPhone}" style="color:${GOLD};text-decoration:none;">${data.shopPhone}</a>.` : ''}
     </p>
   `
   return {
-    subject: `Booking Confirmed — ${data.shopName} · ${data.date}`,
+    subject: `Booking Confirmed [${data.bookingRef}] — ${data.shopName} · ${data.date}`,
     html: emailShell(content, data.shopName),
   }
 }
@@ -152,6 +158,7 @@ export function bookingCancellation(data: BookingEmailData) {
     </div>
 
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
+      ${detailRow('Reference', data.bookingRef)}
       ${detailRow('Service', data.serviceName)}
       ${detailRow('Was scheduled', `${data.date} at ${data.startTime}`)}
     </table>

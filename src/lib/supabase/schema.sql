@@ -138,6 +138,7 @@ CREATE TABLE bookings (
   client_id       UUID            REFERENCES clients(id) ON DELETE SET NULL,
   staff_id        UUID            REFERENCES staff(id) ON DELETE SET NULL NOT NULL,
   service_id      UUID            REFERENCES services(id) ON DELETE SET NULL NOT NULL,
+  booking_ref     TEXT            UNIQUE,
   client_name     TEXT            NOT NULL,
   client_email    TEXT,
   client_phone    TEXT,

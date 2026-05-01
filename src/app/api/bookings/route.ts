@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
   const staffId  = sp.get('staff_id')
   const status   = sp.get('status')
   const serviceId = sp.get('service_id')
+  const search   = sp.get('search')?.trim() ?? ''
   const page     = Math.max(1, parseInt(sp.get('page') ?? '1'))
   const limit    = Math.min(100, parseInt(sp.get('limit') ?? '50'))
   const withRelations = sp.get('relations') !== 'false'
@@ -72,6 +73,13 @@ export async function GET(request: NextRequest) {
   if (staffId)   query = query.eq('staff_id', staffId)
   if (status)    query = query.eq('status', status)
   if (serviceId) query = query.eq('service_id', serviceId)
+  if (search) {
+    if (/^BB-/i.test(search)) {
+      query = query.eq('booking_ref', search.toUpperCase())
+    } else {
+      query = query.ilike('client_name', `%${search}%`)
+    }
+  }
 
   const { data, error, count } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -155,10 +163,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Time slot is already taken' }, { status: 409 })
   }
 
+  // ── Generate booking ref before insert ───────────────────────────────
+  const bookingId  = crypto.randomUUID()
+  const bookingRef = 'BB-' + bookingId.replace(/-/g, '').slice(0, 8).toUpperCase()
+
   // ── Insert booking ────────────────────────────────────────────────────
   const { data: booking, error: insertError } = await supabase
     .from('bookings')
     .insert({
+      id:             bookingId,
+      booking_ref:    bookingRef,
       shop_id, staff_id, service_id,
       client_name:    client_name ?? 'Walk-in',
       client_email:   client_email ?? null,
@@ -195,7 +209,8 @@ export async function POST(request: NextRequest) {
       durationMinutes: service?.duration_minutes ?? 30,
       price:           price ?? 0,
       currency:        shop.currency ?? 'GBP',
-      bookingId:       booking.id,
+      bookingId:       bookingId,
+      bookingRef:      bookingRef,
       depositAmount:   deposit_amount,
     }
     sendBookingEmail(bookingConfirmation, client_email, emailData)
@@ -269,6 +284,7 @@ export async function PATCH(request: NextRequest) {
       price:           existing.price ?? 0,
       currency:        shop.currency ?? 'GBP',
       bookingId:       existing.id,
+      bookingRef:      (existing.booking_ref as string | null) ?? existing.id.slice(0, 8).toUpperCase(),
     }
     sendBookingEmail(bookingCancellation, existing.client_email, emailData)
   }

@@ -134,6 +134,7 @@ export interface Booking {
   client_id:      string | null
   staff_id:       string
   service_id:     string
+  booking_ref:    string | null
   client_name:    string
   client_email:   string | null
   client_phone:   string | null

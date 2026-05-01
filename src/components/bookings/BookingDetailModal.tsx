@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { format, parseISO, isValid } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -48,6 +48,12 @@ function formatDate(d: string | null | undefined) {
   if (!d) return '—'
   const parsed = parseISO(d)
   return isValid(parsed) ? format(parsed, 'EEEE, d MMMM yyyy') : '—'
+}
+
+function StaffDot({ colour }: { colour: string }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  useEffect(() => { ref.current?.style.setProperty('--staff-colour', colour) }, [colour])
+  return <span ref={ref} className="staff-avatar w-2 h-2 rounded-full flex-shrink-0" aria-hidden="true" />
 }
 
 function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
@@ -187,7 +193,7 @@ export function BookingDetailModal({ booking, open, currency, onOpenChange, onSu
           <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] flex-shrink-0">
             <div className="flex items-center gap-3">
               {mode === 'edit' && (
-                <button type="button" onClick={() => { setMode('view'); setError(null) }}
+                <button type="button" aria-label="Back to details" onClick={() => { setMode('view'); setError(null) }}
                   className="w-7 h-7 rounded-lg bg-white/[0.05] hover:bg-white/[0.08] text-zinc-400 hover:text-white transition-colors flex items-center justify-center">
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -197,6 +203,9 @@ export function BookingDetailModal({ booking, open, currency, onOpenChange, onSu
               </Dialog.Title>
             </div>
             <div className="flex items-center gap-2">
+              {local.booking_ref && (
+                <span className="text-[10px] font-mono text-[#c9a84c]/80 hidden sm:block">{local.booking_ref}</span>
+              )}
               <span className={cn('text-[10px] font-semibold px-2.5 py-1 rounded-full border', STATUS_STYLES[local.status])}>
                 {STATUS_LABELS[local.status]}
               </span>
@@ -242,7 +251,7 @@ export function BookingDetailModal({ booking, open, currency, onOpenChange, onSu
                     label="Barber"
                     value={
                       <span className="flex items-center gap-2">
-                        {staff?.colour && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: staff.colour }} />}
+                        {staff?.colour && <StaffDot colour={staff.colour} />}
                         {staff?.name ?? '—'}
                       </span>
                     }
@@ -359,8 +368,8 @@ export function BookingDetailModal({ booking, open, currency, onOpenChange, onSu
                   <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Payment</p>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-zinc-400">Method</label>
-                      <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)} className={INPUT}>
+                      <label htmlFor="bdm-payment-method" className="text-xs font-medium text-zinc-400">Method</label>
+                      <select id="bdm-payment-method" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)} className={INPUT}>
                         <option value="cash">Cash</option>
                         <option value="card">Card</option>
                         <option value="bank_transfer">Bank transfer</option>

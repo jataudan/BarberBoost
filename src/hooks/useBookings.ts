@@ -10,6 +10,7 @@ export interface BookingFilters {
   staff_id?:   string
   status?:     BookingStatus | ''
   service_id?: string
+  search?:     string
   page?:       number
   limit?:      number
   relations?:  boolean
@@ -72,6 +73,7 @@ export function useBookings(): UseBookingsReturn {
     if (filters.staff_id)   params.set('staff_id',   filters.staff_id)
     if (filters.status)     params.set('status',     filters.status)
     if (filters.service_id) params.set('service_id', filters.service_id)
+    if (filters.search)     params.set('search',     filters.search)
     if (filters.page)       params.set('page',       String(filters.page))
     if (filters.limit)      params.set('limit',      String(filters.limit))
     if (filters.relations === false) params.set('relations', 'false')
