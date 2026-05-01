@@ -181,7 +181,7 @@ export async function POST(request: NextRequest) {
       is_paid:         false,
       reminder_sent:   false,
     })
-    .select('id')
+    .select('id, booking_ref')
     .single()
 
   if (insertError || !booking) {
@@ -205,6 +205,7 @@ export async function POST(request: NextRequest) {
     price:           service.price,
     currency:        shop.currency ?? 'GBP',
     bookingId:       booking.id,
+    bookingRef:      (booking.booking_ref as string | null) ?? booking.id.slice(0, 8).toUpperCase(),
     bookingPageUrl:  `${appUrl}/booking/${shop_id}`,
   }
 

@@ -8,6 +8,7 @@ import { Menu, X } from 'lucide-react'
 const NAV_LINKS = [
   { label: 'Features', href: '/features' },
   { label: 'Pricing', href: '/pricing' },
+  { label: 'Changelog', href: '/changelog' },
 ]
 
 function ScissorsLogo() {
@@ -96,7 +97,7 @@ export function Navbar() {
           onClick={() => setMenuOpen((v) => !v)}
           className="md:hidden text-zinc-400 hover:text-white transition-colors p-2"
           aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-          aria-expanded={menuOpen ? 'true' : 'false'}
+          aria-expanded={menuOpen}
         >
           {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>

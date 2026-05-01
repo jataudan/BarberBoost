@@ -58,7 +58,7 @@ export function Footer() {
             </p>
             {/* Social icons */}
             <div className="flex gap-3">
-              {(['Instagram', 'X', 'Facebook', 'TikTok'] as const).map((name) => (
+              {(['Instagram', 'X', 'Facebook', 'YouTube'] as const).map((name) => (
                 <a
                   key={name}
                   href="#"
