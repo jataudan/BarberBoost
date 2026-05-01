@@ -211,7 +211,7 @@ export async function PATCH(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { id, status, notes, internal_notes } = body
+  const { id, status, notes, internal_notes, client_name, client_email, client_phone, is_paid, payment_method } = body
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
   // Verify ownership via shop
@@ -232,9 +232,14 @@ export async function PATCH(request: NextRequest) {
   if (!shop) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const updates: Record<string, unknown> = {}
-  if (status)         updates.status         = status
+  if (status !== undefined)         updates.status         = status
   if (notes !== undefined)          updates.notes          = notes
   if (internal_notes !== undefined) updates.internal_notes = internal_notes
+  if (client_name !== undefined)    updates.client_name    = client_name
+  if (client_email !== undefined)   updates.client_email   = client_email
+  if (client_phone !== undefined)   updates.client_phone   = client_phone
+  if (is_paid !== undefined)        updates.is_paid        = is_paid
+  if (payment_method !== undefined) updates.payment_method = payment_method
 
   const { data: updated, error } = await supabase
     .from('bookings')

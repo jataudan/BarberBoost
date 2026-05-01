@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Plus, Scissors, AlertCircle, Clock, ToggleLeft, ToggleRight, Edit, Trash2, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ServiceModal, SERVICE_CATEGORIES } from '@/components/services/ServiceModal'
+import { ServiceDetailModal } from '@/components/services/ServiceDetailModal'
 import { UpgradeModal } from '@/components/shared/UpgradeModal'
 import { PLANS } from '@/lib/stripe/plans'
 import type { PlanId } from '@/lib/stripe/plans'
@@ -50,12 +51,13 @@ function DeleteConfirm({ service, onConfirm, onCancel }: {
 }
 
 // ── Service card ──────────────────────────────────────────────────────────
-function ServiceCard({ service, currency, onEdit, onDelete, onToggle }: {
+function ServiceCard({ service, currency, onEdit, onDelete, onToggle, onView }: {
   service:  Service
   currency: string
   onEdit:   (s: Service) => void
   onDelete: (s: Service) => void
   onToggle: (s: Service) => void
+  onView:   (s: Service) => void
 }) {
   const price = new Intl.NumberFormat('en-GB', { style: 'currency', currency, maximumFractionDigits: 2 }).format(service.price)
 
@@ -67,9 +69,10 @@ function ServiceCard({ service, currency, onEdit, onDelete, onToggle }: {
     <>
       <style>{`.${scopeClass}{--svc-colour:${service.colour}}`}</style>
       <div
+        onClick={() => onView(service)}
         className={cn(
           scopeClass,
-          'group relative bg-[#111111] border rounded-xl p-4 transition-all duration-300 hover:shadow-lg flex flex-col gap-3',
+          'group relative bg-[#111111] border rounded-xl p-4 transition-all duration-300 hover:shadow-lg flex flex-col gap-3 cursor-pointer',
           service.is_active
             ? 'border-white/[0.06] hover:border-white/[0.12]'
             : 'border-white/[0.03] opacity-60'
@@ -112,7 +115,7 @@ function ServiceCard({ service, currency, onEdit, onDelete, onToggle }: {
       <div className="flex items-center justify-between pt-2 border-t border-white/[0.05]">
         <button
           type="button"
-          onClick={() => onToggle(service)}
+          onClick={(e) => { e.stopPropagation(); onToggle(service) }}
           aria-label={service.is_active ? 'Deactivate service' : 'Activate service'}
           className="flex items-center gap-1.5 text-xs transition-colors"
         >
@@ -126,11 +129,11 @@ function ServiceCard({ service, currency, onEdit, onDelete, onToggle }: {
         </button>
 
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button type="button" onClick={() => onEdit(service)} aria-label="Edit service"
+          <button type="button" onClick={(e) => { e.stopPropagation(); onEdit(service) }} aria-label="Edit service"
             className="w-7 h-7 rounded-lg bg-white/[0.05] hover:bg-white/[0.10] text-zinc-400 hover:text-white flex items-center justify-center transition-colors">
             <Edit className="w-3.5 h-3.5" />
           </button>
-          <button type="button" onClick={() => onDelete(service)} aria-label="Delete service"
+          <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(service) }} aria-label="Delete service"
             className="w-7 h-7 rounded-lg bg-white/[0.05] hover:bg-red-500/20 text-zinc-400 hover:text-red-400 flex items-center justify-center transition-colors">
             <Trash2 className="w-3.5 h-3.5" />
           </button>
@@ -155,6 +158,8 @@ export default function ServicesPage() {
   const [deleteTarget, setDeleteTarget] = useState<Service | null>(null)
   const [upgradeOpen,  setUpgradeOpen]  = useState(false)
   const [togglingId,   setTogglingId]   = useState<string | null>(null)
+  const [detailService, setDetailService] = useState<Service | null>(null)
+  const [detailOpen,    setDetailOpen]    = useState(false)
 
   const maxServices = PLANS[plan].limits.services
   const atLimit     = maxServices !== -1 && services.length >= maxServices
@@ -333,6 +338,7 @@ export default function ServicesPage() {
                 onEdit={handleEdit}
                 onDelete={setDeleteTarget}
                 onToggle={handleToggle}
+                onView={(svc) => { setDetailService(svc); setDetailOpen(true) }}
               />
             </div>
           ))}
@@ -340,6 +346,16 @@ export default function ServicesPage() {
       )}
 
       {/* ── Modals ──────────────────────────────────────────────────── */}
+      <ServiceDetailModal
+        service={detailService}
+        open={detailOpen}
+        currency={currency}
+        onOpenChange={setDetailOpen}
+        onEdit={handleEdit}
+        onToggle={handleToggle}
+        onDelete={setDeleteTarget}
+      />
+
       <ServiceModal
         shopId={shopId}
         open={modalOpen}

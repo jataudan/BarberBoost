@@ -11,6 +11,7 @@ import {
   Loader2, Filter, RefreshCw, MoreHorizontal, Edit, Trash2, Calendar, Plus,
 } from 'lucide-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
+import { BookingDetailModal } from '@/components/bookings/BookingDetailModal'
 import type { Staff, Service, BookingStatus, BookingWithRelations } from '@/types/database'
 
 // ── Status badge ──────────────────────────────────────────────────────────
@@ -50,6 +51,15 @@ interface BookingsListProps {
 // ── Component ─────────────────────────────────────────────────────────────
 export function BookingsList({ shopId, currency, dateFrom, dateTo, onEdit }: BookingsListProps) {
   const { bookings, meta, loading, error, fetchBookings, updateStatus, cancelBooking } = useBookings()
+
+  // Detail modal state
+  const [detailBooking, setDetailBooking] = useState<BookingWithRelations | null>(null)
+  const [detailOpen,    setDetailOpen]    = useState(false)
+
+  function openDetail(booking: BookingWithRelations) {
+    setDetailBooking(booking)
+    setDetailOpen(true)
+  }
 
   // Filter state
   const [staffFilter,   setStaffFilter]   = useState('')
@@ -202,7 +212,7 @@ export function BookingsList({ shopId, currency, dateFrom, dateTo, onEdit }: Boo
                   const staff   = booking.staff   as { name: string; colour: string }        | null
                   const price   = new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(booking.price)
                   return (
-                    <tr key={booking.id} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors last:border-b-0">
+                    <tr key={booking.id} onClick={() => openDetail(booking)} className="border-b border-white/[0.04] hover:bg-white/[0.03] transition-colors last:border-b-0 cursor-pointer">
                       <td className="px-4 py-3 pl-5">
                         <p className="text-xs font-mono text-white">{formatTime12h(booking.start_time)}</p>
                         <p className="text-[10px] text-zinc-600 mt-0.5">{(() => { if (!booking.date) return '—'; const d = parseISO(booking.date); return isValid(d) ? format(d, 'd MMM') : '—'; })()}</p>
@@ -231,10 +241,10 @@ export function BookingsList({ shopId, currency, dateFrom, dateTo, onEdit }: Boo
                       <td className="px-4 py-3">
                         <StatusBadge status={booking.status} />
                       </td>
-                      <td className="px-4 py-3 pr-5">
+                      <td className="px-4 py-3 pr-5" onClick={(e) => e.stopPropagation()}>
                         <BookingActions
                           booking={booking}
-                          onEdit={() => onEdit?.(booking)}
+                          onEdit={() => openDetail(booking)}
                           onConfirm={() => handleStatusUpdate(booking.id, 'confirmed')}
                           onComplete={() => handleStatusUpdate(booking.id, 'completed')}
                           onCancel={() => handleCancel(booking.id)}
@@ -248,6 +258,15 @@ export function BookingsList({ shopId, currency, dateFrom, dateTo, onEdit }: Boo
           </div>
         )}
       </div>
+
+      {/* Booking detail / edit modal */}
+      <BookingDetailModal
+        booking={detailBooking}
+        open={detailOpen}
+        currency={currency}
+        onOpenChange={setDetailOpen}
+        onSuccess={() => load(page)}
+      />
 
       {/* Pagination */}
       {meta && meta.totalPages > 1 && (

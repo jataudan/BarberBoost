@@ -172,6 +172,7 @@ CREATE TABLE inventory (
   cost_price           DECIMAL(10,2),
   retail_price         DECIMAL(10,2),
   supplier             TEXT,
+  notes                TEXT,
   created_at           TIMESTAMPTZ   DEFAULT NOW()
 );
 
