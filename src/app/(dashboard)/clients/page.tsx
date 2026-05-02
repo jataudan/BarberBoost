@@ -3,12 +3,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Plus, Search, Grid3x3, List, Users, X, ChevronDown,
-  UserPlus, AlertCircle,
+  UserPlus, AlertCircle, Download, Upload,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useClients, type ClientFilters } from '@/hooks/useClients'
-import { ClientCard }  from '@/components/clients/ClientCard'
-import { ClientModal } from '@/components/clients/ClientModal'
+import { ClientCard }         from '@/components/clients/ClientCard'
+import { ClientModal }        from '@/components/clients/ClientModal'
+import { ClientImportModal }  from '@/components/clients/ClientImportModal'
 import { UpgradeModal } from '@/components/shared/UpgradeModal'
 import type { Client } from '@/types/database'
 import type { PlanId } from '@/lib/stripe/plans'
@@ -140,6 +141,7 @@ export default function ClientsPage() {
   const [editClient,   setEditClient]   = useState<Client | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Client | null>(null)
   const [upgradeOpen,  setUpgradeOpen]  = useState(false)
+  const [importOpen,   setImportOpen]   = useState(false)
 
   const { clients, meta, loading, fetchClients, deleteClient } = useClients()
   const searchRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -171,6 +173,19 @@ export default function ClientsPage() {
   function handleSort(s: ClientFilters['sort']) {
     setSort(s); setPage(1)
     fetchClients(shopId, { search, tag, sort: s, page: 1, limit: 48 })
+  }
+
+  async function exportCSV() {
+    if (!shopId) return
+    const res  = await fetch(`/api/clients/export?shop_id=${shopId}`)
+    if (!res.ok) return
+    const blob = await res.blob()
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = 'clients.csv'
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   function openAdd() {
@@ -215,14 +230,34 @@ export default function ClientsPage() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={openAdd}
-          className="flex items-center gap-1.5 bg-[#c9a84c] hover:bg-[#e2bf6a] text-[#0a0a0a] font-bold text-sm rounded-xl px-4 py-2.5 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          <span className="hidden sm:block">Add Client</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={exportCSV}
+            title="Export clients to CSV"
+            className="flex items-center gap-1.5 bg-[#111111] border border-white/[0.06] hover:border-white/[0.12] text-zinc-400 hover:text-white text-sm rounded-xl px-3.5 py-2.5 transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            <span className="hidden sm:block">Export</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setImportOpen(true)}
+            title="Import clients from CSV"
+            className="flex items-center gap-1.5 bg-[#111111] border border-white/[0.06] hover:border-white/[0.12] text-zinc-400 hover:text-white text-sm rounded-xl px-3.5 py-2.5 transition-colors"
+          >
+            <Upload className="w-4 h-4" />
+            <span className="hidden sm:block">Import</span>
+          </button>
+          <button
+            type="button"
+            onClick={openAdd}
+            className="flex items-center gap-1.5 bg-[#c9a84c] hover:bg-[#e2bf6a] text-[#0a0a0a] font-bold text-sm rounded-xl px-4 py-2.5 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:block">Add Client</span>
+          </button>
+        </div>
       </div>
 
       {/* ── Plan limit bar ───────────────────────────────────────────── */}
@@ -395,6 +430,13 @@ export default function ClientsPage() {
         onOpenChange={setModalOpen}
         editClient={editClient}
         onSuccess={handleSuccess}
+      />
+
+      <ClientImportModal
+        shopId={shopId}
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onSuccess={load}
       />
 
       <UpgradeModal
