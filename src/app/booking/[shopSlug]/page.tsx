@@ -48,7 +48,7 @@ export default async function PublicBookingPage({ params }: Props) {
   // Step 1 — fetch shop by slug
   const { data: shopRaw } = await supabase
     .from('shops')
-    .select('id, owner_id, name, phone, address, city, postcode, currency, cancellation_hours, no_show_fee, opening_hours')
+    .select('id, owner_id, name, logo_url, phone, address, city, postcode, currency, cancellation_hours, no_show_fee, opening_hours')
     .eq('slug', shopSlug)
     .single()
 
@@ -87,6 +87,7 @@ export default async function PublicBookingPage({ params }: Props) {
   const shop: PublicShop = {
     id:                 shopRaw.id,
     name:               shopRaw.name,
+    logo_url:           shopRaw.logo_url     ?? null,
     phone:              shopRaw.phone        ?? null,
     address:            shopRaw.address      ?? null,
     city:               shopRaw.city         ?? null,
@@ -141,9 +142,17 @@ export default async function PublicBookingPage({ params }: Props) {
       <header className="bg-[#111111] border-b border-white/[0.06]">
         <div className="max-w-2xl mx-auto px-4 py-6 flex items-center gap-4">
           {/* Logo / initials avatar */}
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#c9a84c] to-[#a8873a] flex items-center justify-center flex-shrink-0">
-            <span className="text-xl font-black text-black">{initials}</span>
-          </div>
+          {shop.logo_url ? (
+            <img
+              src={shop.logo_url}
+              alt={`${shop.name} logo`}
+              className="w-14 h-14 rounded-2xl object-cover flex-shrink-0 bg-[#1a1a1a]"
+            />
+          ) : (
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#c9a84c] to-[#a8873a] flex items-center justify-center flex-shrink-0">
+              <span className="text-xl font-black text-black">{initials}</span>
+            </div>
+          )}
 
           {/* Name + location */}
           <div className="flex-1 min-w-0">

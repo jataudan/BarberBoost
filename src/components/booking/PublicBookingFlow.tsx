@@ -34,6 +34,7 @@ export interface PublicStaff {
 export interface PublicShop {
   id: string
   name: string
+  logo_url: string | null
   phone: string | null
   address: string | null
   city: string | null
