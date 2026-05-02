@@ -4,6 +4,43 @@
 -- ============================================================
 
 -- ============================================================
+-- STORAGE BUCKETS
+-- Run once to create the shop-logos bucket.
+-- Supabase Dashboard → SQL Editor → paste and run.
+-- ============================================================
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'shop-logos',
+  'shop-logos',
+  true,
+  2097152,
+  '{image/png,image/jpeg,image/webp}'
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- Storage RLS policies (drop first so re-runs are safe)
+DROP POLICY IF EXISTS "shop_logos_insert" ON storage.objects;
+DROP POLICY IF EXISTS "shop_logos_select" ON storage.objects;
+DROP POLICY IF EXISTS "shop_logos_update" ON storage.objects;
+DROP POLICY IF EXISTS "shop_logos_delete" ON storage.objects;
+
+CREATE POLICY "shop_logos_insert"
+  ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'shop-logos');
+
+CREATE POLICY "shop_logos_select"
+  ON storage.objects FOR SELECT TO public
+  USING (bucket_id = 'shop-logos');
+
+CREATE POLICY "shop_logos_update"
+  ON storage.objects FOR UPDATE TO authenticated
+  USING (bucket_id = 'shop-logos');
+
+CREATE POLICY "shop_logos_delete"
+  ON storage.objects FOR DELETE TO authenticated
+  USING (bucket_id = 'shop-logos');
+
+-- ============================================================
 -- EXTENSIONS
 -- ============================================================
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -519,3 +556,4 @@ DROP TRIGGER IF EXISTS trg_notify_new_booking ON bookings;
 CREATE TRIGGER trg_notify_new_booking
   AFTER INSERT ON bookings
   FOR EACH ROW EXECUTE FUNCTION notify_new_booking();
+
