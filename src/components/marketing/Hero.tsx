@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { ArrowRight, Play } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
+import { WatchDemoButton } from './WatchDemoButton'
 
 /** Decorative barbershop scissors SVG — placed absolutely in hero background */
 function DecorativeScissors({
@@ -123,15 +124,7 @@ export function Hero() {
               Start Free — No Card Needed
               <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
             </Link>
-            <button
-              type="button"
-              className="flex items-center justify-center gap-3 text-white border border-zinc-700 hover:border-[#c9a84c]/50 px-6 sm:px-8 py-4 rounded-xl transition-all duration-200 text-base hover:bg-[#c9a84c]/5"
-            >
-              <span className="w-8 h-8 rounded-full border border-zinc-600 flex items-center justify-center flex-shrink-0">
-                <Play className="w-3 h-3 fill-white ml-0.5" />
-              </span>
-              Watch Demo
-            </button>
+            <WatchDemoButton />
           </div>
 
           {/* Trust nudge */}
