@@ -13,7 +13,7 @@ function formatTime12h(timeStr: string): string {
 }
 
 async function sendBookingEmail(
-  template: (data: BookingEmailData) => { subject: string; html: string },
+  template: (data: BookingEmailData) => { subject: string; html: string; text?: string },
   to: string,
   data: BookingEmailData
 ) {

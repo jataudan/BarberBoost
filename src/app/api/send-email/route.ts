@@ -12,7 +12,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    let template: { subject: string; html: string }
+    let template: { subject: string; html: string; text?: string }
 
     switch (type) {
       case 'booking_confirmation':

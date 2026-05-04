@@ -114,9 +114,33 @@ export function bookingConfirmation(data: BookingEmailData) {
       ${data.shopPhone ? `Call us on <a href="tel:${data.shopPhone}" style="color:${GOLD};text-decoration:none;">${data.shopPhone}</a>.` : ''}
     </p>
   `
+  const text = [
+    `BOOKING CONFIRMED — ${data.shopName}`,
+    '',
+    `Hi ${data.clientName},`,
+    '',
+    `Your appointment is confirmed. Here are your details:`,
+    '',
+    `Booking Reference: ${data.bookingRef}`,
+    `Service:  ${data.serviceName}`,
+    `Barber:   ${data.staffName}`,
+    `Date:     ${data.date}`,
+    `Time:     ${data.startTime}`,
+    `Duration: ${data.durationMinutes} min`,
+    `Total:    ${formatted}`,
+    data.shopAddress ? `Location: ${data.shopAddress}` : '',
+    '',
+    `Need to cancel or reschedule? Please contact us at least 24 hours in advance.`,
+    data.shopPhone ? `Call us on ${data.shopPhone}.` : '',
+    '',
+    `---`,
+    `This email was sent by ${data.shopName} via BarberBoost.`,
+  ].filter(l => l !== undefined).join('\n')
+
   return {
     subject: `Booking Confirmed [${data.bookingRef}] — ${data.shopName} · ${data.date}`,
-    html: emailShell(content, data.shopName),
+    html:    emailShell(content, data.shopName),
+    text,
   }
 }
 
@@ -142,9 +166,30 @@ export function bookingReminder(data: BookingEmailData) {
       ${data.shopPhone ? `Call <a href="tel:${data.shopPhone}" style="color:${GOLD};text-decoration:none;">${data.shopPhone}</a>.` : ''}
     </p>
   `
+  const text = [
+    `APPOINTMENT REMINDER — ${data.shopName}`,
+    '',
+    `Hi ${data.clientName},`,
+    '',
+    `Your appointment is tomorrow. Here are your details:`,
+    '',
+    `Service:  ${data.serviceName}`,
+    `Barber:   ${data.staffName}`,
+    `Date:     ${data.date}`,
+    `Time:     ${data.startTime}`,
+    data.shopAddress ? `Location: ${data.shopAddress}` : '',
+    '',
+    `If you need to cancel, please do so now to avoid a cancellation fee.`,
+    data.shopPhone ? `Call ${data.shopPhone}.` : '',
+    '',
+    `---`,
+    `This email was sent by ${data.shopName} via BarberBoost.`,
+  ].filter(l => l !== undefined).join('\n')
+
   return {
     subject: `Reminder: Your appointment tomorrow at ${data.startTime} — ${data.shopName}`,
-    html: emailShell(content, data.shopName),
+    html:    emailShell(content, data.shopName),
+    text,
   }
 }
 
@@ -169,9 +214,28 @@ export function bookingCancellation(data: BookingEmailData) {
 
     ${data.bookingPageUrl ? ctaButton('BOOK AGAIN', data.bookingPageUrl) : ''}
   `
+  const text = [
+    `BOOKING CANCELLED — ${data.shopName}`,
+    '',
+    `Hi ${data.clientName},`,
+    '',
+    `Your booking has been cancelled.`,
+    '',
+    `Reference:     ${data.bookingRef}`,
+    `Service:       ${data.serviceName}`,
+    `Was scheduled: ${data.date} at ${data.startTime}`,
+    '',
+    `We hope to see you again soon.`,
+    data.bookingPageUrl ? `Book again: ${data.bookingPageUrl}` : '',
+    '',
+    `---`,
+    `This email was sent by ${data.shopName} via BarberBoost.`,
+  ].filter(l => l !== undefined).join('\n')
+
   return {
     subject: `Booking Cancelled — ${data.shopName}`,
-    html: emailShell(content, data.shopName),
+    html:    emailShell(content, data.shopName),
+    text,
   }
 }
 
@@ -195,9 +259,24 @@ export function noShowFollowup(data: BookingEmailData) {
 
     ${data.bookingPageUrl ? ctaButton('REBOOK NOW', data.bookingPageUrl) : ''}
   `
+  const text = [
+    `WE MISSED YOU — ${data.shopName}`,
+    '',
+    `Hi ${data.clientName},`,
+    '',
+    `You had a ${data.serviceName} booked with ${data.staffName} on ${data.date} at ${data.startTime}. We didn't see you — we hope everything is okay!`,
+    '',
+    `Whenever you're ready, we'd love to get you back in the chair.`,
+    data.bookingPageUrl ? `Rebook here: ${data.bookingPageUrl}` : '',
+    '',
+    `---`,
+    `This email was sent by ${data.shopName} via BarberBoost.`,
+  ].filter(l => l !== undefined).join('\n')
+
   return {
     subject: `We missed you — Rebook at ${data.shopName}`,
-    html: emailShell(content, data.shopName),
+    html:    emailShell(content, data.shopName),
+    text,
   }
 }
 
@@ -266,9 +345,29 @@ export function lowStockAlert(data: LowStockAlertData) {
     ${ctaButton('VIEW INVENTORY', data.dashboardUrl)}
   `
 
+  const itemLines = data.items.map(item =>
+    `- ${item.name}${item.sku ? ` (${item.sku})` : ''}: ${item.quantity} in stock (min ${item.threshold}) — ${item.quantity === 0 ? 'OUT OF STOCK' : 'LOW STOCK'}`
+  ).join('\n')
+
+  const text = [
+    `LOW STOCK ALERT — ${data.shopName}`,
+    '',
+    `Hi ${data.ownerName},`,
+    '',
+    `${data.items.length} item${data.items.length !== 1 ? 's' : ''} need restocking:`,
+    '',
+    itemLines,
+    '',
+    `View your inventory: ${data.dashboardUrl}`,
+    '',
+    `---`,
+    `Sent by BarberBoost.`,
+  ].join('\n')
+
   return {
-    subject: `⚠️ Low stock alert — ${data.items.length} item${data.items.length !== 1 ? 's' : ''} need restocking at ${data.shopName}`,
-    html: emailShell(content, data.shopName),
+    subject: `Low stock alert — ${data.items.length} item${data.items.length !== 1 ? 's' : ''} need restocking at ${data.shopName}`,
+    html:    emailShell(content, data.shopName),
+    text,
   }
 }
 
@@ -325,9 +424,29 @@ export function welcomeEmail(data: WelcomeEmailData) {
     </p>
   `
 
+  const text = [
+    `WELCOME TO BARBERBOOST`,
+    '',
+    `Hi ${data.ownerName},`,
+    '',
+    `Your shop is live. Here's what to do first:`,
+    '',
+    `1. Add a service — create your haircut menu so clients know what you offer.`,
+    `2. Add a barber — add yourself or your team so clients can choose their barber.`,
+    `3. Share your booking page — ${data.bookingPageUrl}`,
+    '',
+    `Open your dashboard: ${data.dashboardUrl}`,
+    '',
+    `Questions? ${data.supportEmail}`,
+    '',
+    `---`,
+    `Sent by BarberBoost.`,
+  ].join('\n')
+
   return {
-    subject: `Welcome to BarberBoost — let's get you set up 🔥`,
+    subject: `Welcome to BarberBoost — let's get you set up`,
     html:    emailShell(content, data.shopName),
+    text,
   }
 }
 
@@ -340,7 +459,7 @@ export interface StaffInvitationData {
   dashboardUrl: string
 }
 
-export function staffInvitation(data: StaffInvitationData): { subject: string; html: string } {
+export function staffInvitation(data: StaffInvitationData): { subject: string; html: string; text: string } {
   const content = `
     <h2 style="margin:0 0 8px;font-size:20px;font-weight:700;color:${TEXT};">You've been added to ${data.shopName}</h2>
     <p style="margin:0 0 24px;font-size:14px;color:${MUTED};line-height:1.6;">
@@ -361,8 +480,25 @@ export function staffInvitation(data: StaffInvitationData): { subject: string; h
     ${ctaButton('View BarberBoost', data.dashboardUrl)}
   `
 
+  const text = [
+    `YOU'VE BEEN ADDED TO ${data.shopName.toUpperCase()} ON BARBERBOOST`,
+    '',
+    `Hi ${data.staffName},`,
+    '',
+    `${data.ownerName ? `${data.ownerName} has` : 'You have been'} added you as a team member on BarberBoost. Clients can now book appointments directly with you online.`,
+    '',
+    `Shop: ${data.shopName}`,
+    `Your name: ${data.staffName}`,
+    '',
+    `View BarberBoost: ${data.dashboardUrl}`,
+    '',
+    `---`,
+    `Sent by BarberBoost.`,
+  ].join('\n')
+
   return {
     subject: `You've been added to ${data.shopName} on BarberBoost`,
     html:    emailShell(content, data.shopName),
+    text,
   }
 }
