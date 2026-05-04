@@ -330,3 +330,39 @@ export function welcomeEmail(data: WelcomeEmailData) {
     html:    emailShell(content, data.shopName),
   }
 }
+
+// ── Staff invitation ──────────────────────────────────────────────────────
+
+export interface StaffInvitationData {
+  staffName:   string
+  shopName:    string
+  ownerName?:  string | null
+  dashboardUrl: string
+}
+
+export function staffInvitation(data: StaffInvitationData): { subject: string; html: string } {
+  const content = `
+    <h2 style="margin:0 0 8px;font-size:20px;font-weight:700;color:${TEXT};">You've been added to ${data.shopName}</h2>
+    <p style="margin:0 0 24px;font-size:14px;color:${MUTED};line-height:1.6;">
+      ${data.ownerName ? `${data.ownerName} has` : 'You have been'} added you as a team member on BarberBoost.
+      Clients can now book appointments directly with you online.
+    </p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+      ${detailRow('Shop', data.shopName)}
+      ${detailRow('Your name', data.staffName)}
+    </table>
+
+    <p style="font-size:13px;color:${MUTED};line-height:1.6;margin:0 0 4px;">
+      Your manager can share your booking page link so clients can book with you directly.
+      If you have any questions about your schedule or services, contact your shop manager.
+    </p>
+
+    ${ctaButton('View BarberBoost', data.dashboardUrl)}
+  `
+
+  return {
+    subject: `You've been added to ${data.shopName} on BarberBoost`,
+    html:    emailShell(content, data.shopName),
+  }
+}

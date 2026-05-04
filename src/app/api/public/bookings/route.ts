@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
   // ── Verify shop exists and is public ────────────────────────────────────
   const { data: shop } = await supabase
     .from('shops')
-    .select('id, owner_id, name, address, phone, currency, cancellation_hours, no_show_fee')
+    .select('id, owner_id, name, slug, address, phone, currency, cancellation_hours, no_show_fee')
     .eq('id', shop_id)
     .single()
 
@@ -188,8 +188,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: insertError?.message ?? 'Failed to create booking' }, { status: 500 })
   }
 
-  // ── Send confirmation email (non-blocking) ────────────────────────────────
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://barberboost.com'
+  // ── Send confirmation email ───────────────────────────────────────────────
+  const appUrl    = process.env.NEXT_PUBLIC_APP_URL ?? 'https://barberboost.app'
   const emailData: BookingEmailData = {
     clientName:      client_name.trim(),
     clientEmail:     client_email.trim(),
@@ -206,19 +206,19 @@ export async function POST(request: NextRequest) {
     currency:        shop.currency ?? 'GBP',
     bookingId:       booking.id,
     bookingRef:      (booking.booking_ref as string | null) ?? booking.id.slice(0, 8).toUpperCase(),
-    bookingPageUrl:  `${appUrl}/booking/${shop_id}`,
+    bookingPageUrl:  `${appUrl}/booking/${(shop as { slug?: string }).slug ?? shop_id}`,
   }
 
-  import('resend').then(({ Resend: ResendClient }) => {
+  try {
+    const { Resend: ResendClient } = await import('resend')
     const resend = new ResendClient(process.env.RESEND_API_KEY)
-    const FROM   = process.env.RESEND_FROM_EMAIL ?? 'bookings@barberboost.com'
-    resend.emails.send({
-      from:    FROM,
-      to:      client_email.trim(),
-      subject: bookingConfirmation(emailData).subject,
-      html:    bookingConfirmation(emailData).html,
-    }).catch(() => {})
-  }).catch(() => {}) // non-fatal
+    const FROM   = process.env.RESEND_FROM_EMAIL ?? 'BarberBoost <noreply@barberboost.app>'
+    const tmpl   = bookingConfirmation(emailData)
+    const { error: emailErr } = await resend.emails.send({ from: FROM, to: client_email.trim(), ...tmpl })
+    if (emailErr) console.error('[public/bookings] email error:', emailErr.message)
+  } catch (err) {
+    console.error('[public/bookings] email exception:', err)
+  }
 
   return NextResponse.json({
     data: {
