@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { PLANS, type PlanId } from '@/lib/stripe/plans'
@@ -147,14 +148,9 @@ function SidebarInner({
     <>
       {/* Logo */}
       <div className="px-5 py-5 border-b border-white/[0.06]">
-        <Link href="/dashboard" onClick={onClose} className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-[#c9a84c]/10 border border-[#c9a84c]/20 flex items-center justify-center flex-shrink-0">
-            <Zap className="w-4 h-4 text-[#c9a84c]" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-white leading-tight">BarberBoost</p>
-            <p className="text-[10px] text-zinc-500 truncate leading-tight">{shopName}</p>
-          </div>
+        <Link href="/dashboard" onClick={onClose} className="flex flex-col gap-1">
+          <Image src="/logo.png" alt="BarberBoost" width={120} height={24} className="h-6 w-auto" />
+          <p className="text-[10px] text-zinc-500 truncate leading-tight">{shopName}</p>
         </Link>
       </div>
 

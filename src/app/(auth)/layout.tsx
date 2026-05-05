@@ -1,16 +1,6 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { AuthTestimonials } from '@/components/auth/AuthTestimonials'
-
-function ScissorsLogo() {
-  return (
-    <svg width="32" height="32" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-      <circle cx="7" cy="7" r="4.5" stroke="#c9a84c" strokeWidth="1.5" />
-      <circle cx="7" cy="21" r="4.5" stroke="#c9a84c" strokeWidth="1.5" />
-      <line x1="11" y1="10" x2="24" y2="4" stroke="#c9a84c" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="11" y1="18" x2="24" y2="24" stroke="#c9a84c" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  )
-}
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -38,12 +28,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
         {/* Top: logo */}
         <div className="relative z-10">
-          <Link href="/" className="flex items-center gap-3">
-            <ScissorsLogo />
-            <span className="font-[family-name:var(--font-heading)] text-3xl tracking-widest leading-none">
-              <span className="text-[#c9a84c]">BARBER</span>
-              <span className="text-white">BOOST</span>
-            </span>
+          <Link href="/" className="flex items-center">
+            <Image src="/logo.png" alt="BarberBoost" width={200} height={40} priority className="h-10 w-auto" />
           </Link>
         </div>
 
@@ -87,13 +73,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       {/* ── Right: form panel ── */}
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-12 sm:px-8">
         {/* Mobile logo */}
-        <div className="lg:hidden mb-8">
-          <Link href="/" className="flex items-center gap-2.5 justify-center">
-            <ScissorsLogo />
-            <span className="font-[family-name:var(--font-heading)] text-2xl tracking-widest leading-none">
-              <span className="text-[#c9a84c]">BARBER</span>
-              <span className="text-white">BOOST</span>
-            </span>
+        <div className="lg:hidden mb-8 flex justify-center">
+          <Link href="/">
+            <Image src="/logo.png" alt="BarberBoost" width={180} height={36} priority className="h-9 w-auto" />
           </Link>
         </div>
 

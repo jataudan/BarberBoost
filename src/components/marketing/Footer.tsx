@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 
 const LINKS = {
   Product: [
@@ -27,17 +28,6 @@ const LINKS = {
   ],
 }
 
-function ScissorsLogo() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-      <circle cx="7" cy="7" r="4.5" stroke="#c9a84c" strokeWidth="1.5" />
-      <circle cx="7" cy="21" r="4.5" stroke="#c9a84c" strokeWidth="1.5" />
-      <line x1="11" y1="10" x2="24" y2="4" stroke="#c9a84c" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="11" y1="18" x2="24" y2="24" stroke="#c9a84c" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  )
-}
-
 export function Footer() {
   return (
     <footer className="bg-[#0a0a0a] border-t border-[#c9a84c]/10">
@@ -46,12 +36,8 @@ export function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-10 md:gap-8">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1 space-y-4">
-            <Link href="/" className="flex items-center gap-2.5">
-              <ScissorsLogo />
-              <span className="font-[family-name:var(--font-heading)] text-xl tracking-widest leading-none">
-                <span className="text-[#c9a84c]">BARBER</span>
-                <span className="text-white">BOOST</span>
-              </span>
+            <Link href="/" className="flex items-center">
+              <Image src="/logo.png" alt="BarberBoost" width={160} height={32} className="h-8 w-auto" />
             </Link>
             <p className="text-sm text-zinc-500 leading-relaxed max-w-[200px]">
               Heritage meets digital. Built for UK barbershops.

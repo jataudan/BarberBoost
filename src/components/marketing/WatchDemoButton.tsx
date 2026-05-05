@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Play, X, Bell, Scissors } from 'lucide-react'
+import Image from 'next/image'
+import { Play, X, Bell } from 'lucide-react'
 
 function DemoComingSoonModal({ onClose }: { onClose: () => void }) {
   return (
@@ -64,13 +65,8 @@ function DemoComingSoonModal({ onClose }: { onClose: () => void }) {
           {/* Content */}
           <div className="px-6 pt-5 pb-6 text-center space-y-3">
             {/* Brand badge */}
-            <div className="flex items-center justify-center gap-2">
-              <div className="w-5 h-5 rounded-md bg-[#c9a84c]/15 border border-[#c9a84c]/25 flex items-center justify-center">
-                <Scissors className="w-2.5 h-2.5 text-[#c9a84c]" />
-              </div>
-              <span className="text-[11px] font-bold text-[#c9a84c] tracking-[0.15em] uppercase">
-                BarberBoost
-              </span>
+            <div className="flex items-center justify-center">
+              <Image src="/logo.png" alt="BarberBoost" width={110} height={22} className="h-5 w-auto" />
             </div>
 
             <div className="space-y-1.5">

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { Menu, X } from 'lucide-react'
 
@@ -10,18 +11,6 @@ const NAV_LINKS = [
   { label: 'Pricing', href: '/pricing' },
   { label: 'Changelog', href: '/changelog' },
 ]
-
-function ScissorsLogo() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-      <circle cx="7" cy="7" r="4.5" stroke="#c9a84c" strokeWidth="1.5" />
-      <circle cx="7" cy="21" r="4.5" stroke="#c9a84c" strokeWidth="1.5" />
-      <line x1="11" y1="10" x2="24" y2="4" stroke="#c9a84c" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="11" y1="18" x2="24" y2="24" stroke="#c9a84c" strokeWidth="1.5" strokeLinecap="round" />
-      <line x1="16" y1="13" x2="24" y2="4" stroke="#c9a84c" strokeWidth="1.5" strokeLinecap="round" opacity="0" />
-    </svg>
-  )
-}
 
 export function Navbar() {
   const pathname = usePathname()
@@ -47,12 +36,8 @@ export function Navbar() {
     >
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5 group" aria-label="BarberBoost home">
-          <ScissorsLogo />
-          <span className="font-[family-name:var(--font-heading)] text-2xl tracking-widest leading-none">
-            <span className="text-[#c9a84c]">BARBER</span>
-            <span className="text-white">BOOST</span>
-          </span>
+        <Link href="/" className="flex items-center" aria-label="BarberBoost home">
+          <Image src="/logo.png" alt="BarberBoost" width={180} height={36} priority className="h-9 w-auto" />
         </Link>
 
         {/* Desktop nav links */}
