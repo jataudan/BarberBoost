@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import {
   BookOpen, Calendar, Users, CreditCard, Wrench, ArrowRight,
-  CheckCircle, Clock, Globe, Scissors, BarChart2, Bell,
-  RefreshCw, Hash, Mail, Shield, Smartphone, ChevronRight,
+  CheckCircle, Clock, BarChart2, Bell,
+  RefreshCw, Hash, Shield, Smartphone, ChevronRight, AlertTriangle,
 } from 'lucide-react'
 import { FAQ } from '@/components/marketing/FAQ'
 
@@ -14,11 +14,11 @@ export const metadata: Metadata = {
 
 // ── Category nav ──────────────────────────────────────────────────────────────
 const CATEGORIES = [
-  { icon: BookOpen,   label: 'Setup Guide',        href: '#setup-guide',    description: 'Get your shop live in under 30 minutes' },
-  { icon: Calendar,  label: 'Bookings & Clients',  href: '#bookings-faq',   description: 'Managing appointments and your client database' },
-  { icon: Users,     label: 'Staff & Services',    href: '#staff',          description: 'Adding barbers, setting hours, and services' },
-  { icon: CreditCard, label: 'Billing & Plans',    href: '#billing',        description: 'Subscriptions, invoices, and upgrades' },
-  { icon: Wrench,    label: 'Technical',            href: '#technical',      description: 'Data, browsers, security, and exports' },
+  { icon: Calendar,       label: 'Booking Setup',    href: '#booking-setup',  description: 'Setting up your booking page and appointments' },
+  { icon: AlertTriangle,  label: 'No-Shows',         href: '#noshow',         description: 'Reducing no-shows and handling cancellations' },
+  { icon: Bell,           label: 'Reminders',        href: '#reminders',      description: 'Automated client reminders and notifications' },
+  { icon: CreditCard,     label: 'Billing',          href: '#billing',        description: 'Subscriptions, pricing, and cancellations' },
+  { icon: Wrench,         label: 'Technical',        href: '#technical',      description: 'Login issues, app problems, and getting started' },
 ]
 
 // ── Setup guide steps ─────────────────────────────────────────────────────────
@@ -163,151 +163,63 @@ const MAINTENANCE = [
   },
 ]
 
-// ── Enhanced FAQ content ──────────────────────────────────────────────────────
-const GETTING_STARTED = [
+// ── FAQ content ───────────────────────────────────────────────────────────────
+const BOOKING_SETUP = [
   {
-    question: 'How long does setup take?',
-    answer: 'Most shops are fully set up in under 30 minutes. The essentials are: add a service, add a staff member with working hours, and your booking page is ready to share. You can add more services, staff, and customisation over time. Follow the six steps in the Setup Guide above.',
+    question: 'How do I set up my booking page?',
+    answer: 'Getting your booking page live takes less than 5 minutes. Head to Settings > Booking Page, add your services and availability, then copy your personal booking link. Share it on Instagram, WhatsApp, or wherever your clients find you — and they can book instantly, 24/7.',
   },
   {
-    question: 'How do I create my first booking?',
-    answer: 'Go to Bookings in the dashboard and click "New Booking". Select the client (or create one on the spot), choose the service, pick an available time slot, and confirm. The client will receive a confirmation email with their unique booking reference (e.g. BB-A3F91C2B) automatically.',
-  },
-  {
-    question: 'How do I set up my public booking page?',
-    answer: 'Head to Settings → Booking Page. Choose a memorable URL slug (e.g. barberboost.app/book/kings-cuts), upload a cover photo, and write a welcome message. Select which services are bookable online, then share the link anywhere clients find you — Instagram bio, Google Business, WhatsApp.',
-  },
-  {
-    question: 'How do I add my services?',
-    answer: 'Go to Services and click "Add Service". Enter the name, duration, price, and category. Colour-code services for easy visual identification in the calendar. You can also click any existing service card to view its full details, then edit it from within the modal.',
-  },
-  {
-    question: 'How do I add staff members?',
-    answer: 'Go to Staff → Add Staff. Enter the barber\'s name, role, and colour. Set their working hours immediately after — this is what controls available slots on the booking page. You can then assign which services they offer. Staff limits depend on your plan (Free = 1, Starter = 2, Pro = 8, Empire = unlimited).',
-  },
-  {
-    question: 'How do I complete the onboarding checklist?',
-    answer: 'The onboarding checklist on your dashboard guides you through the key steps: add a service, add a staff member, configure working hours, and publish your booking page. It dismisses automatically once all steps are complete. If you accidentally dismiss it, the steps are covered in full in the Setup Guide section above.',
+    question: 'Can clients book without calling me?',
+    answer: "Yes — that's exactly what BarberBoost is built for. Once your booking page is live, clients book themselves in at any time, even while you're mid-cut. No more DMs, no more missed calls.",
   },
 ]
 
-const BOOKINGS_CLIENTS = [
+const NOSHOW_CANCELLATION = [
   {
-    question: 'What is a booking reference and how do I use it?',
-    answer: 'Every booking gets a unique reference number in the format BB-XXXXXXXX (e.g. BB-A3F91C2B). This reference is shown in the booking list under the client\'s name, displayed in the booking detail modal, and included in the client\'s confirmation email. When a client calls or messages about their appointment, ask them to quote it. Paste it into the search bar on the Bookings page and their booking appears instantly.',
+    question: "I'm still getting no-shows — what can I do?",
+    answer: "BarberBoost sends automated reminders to your clients before every appointment, which cuts no-shows significantly. Go to Settings > Reminders and make sure SMS and/or email reminders are switched on. You can also enable deposit collection to protect your time — clients who pay upfront are far less likely to ghost.",
   },
   {
-    question: 'How do I search for a booking?',
-    answer: 'Use the search bar at the top of the Bookings page. Type a client\'s name to find all their bookings. If a client has their booking reference (BB-XXXXXXXX), typing it in will go straight to that exact booking. You can combine this with the date and status filters for more precise results.',
-  },
-  {
-    question: 'How do I view full booking details?',
-    answer: 'Click any booking row in the list to open the Booking Details modal. This shows the full appointment info (date, time, service, barber), complete client contact details (email, phone), payment status, and any notes. From here you can approve, complete, cancel, or edit the booking.',
-  },
-  {
-    question: 'Can clients book online without creating an account?',
-    answer: 'Yes — clients visit your public booking page, choose a service and time, enter their name and contact details, and that\'s it. No account, no app download. They receive an automatic confirmation email with their booking reference as soon as the booking is made.',
-  },
-  {
-    question: 'How do I cancel or reschedule a booking?',
-    answer: 'Click the booking row to open its detail modal, then click Cancel. Or use the ⋯ actions menu on the right of any booking row. If you cancel, the client receives an automated cancellation email (on Starter plans and above) that includes their original booking reference.',
-  },
-  {
-    question: 'How are booking reminders sent?',
-    answer: 'On Starter plans and above, BarberBoost automatically sends email reminders 48 hours and 2 hours before the appointment. You can customise the timing in Settings → Notifications. Clients can confirm or cancel directly from the reminder email — no login required.',
-  },
-  {
-    question: 'How do I add a client manually?',
-    answer: 'Go to Clients → Add Client and fill in their name, email, and phone. Clients are also created automatically when they book through your public booking page. You can add notes, preferred barber, and tags to any client profile from the Clients section.',
-  },
-  {
-    question: 'What do the client tags mean?',
-    answer: 'Tags are assigned automatically based on booking behaviour: New (1–2 visits), Regular (consistent visitor), VIP (high frequency or spend), At-risk (no visit in 60+ days). You can also add custom tags from any client profile. These tags help you target campaigns and identify clients who need re-engaging.',
+    question: 'How do I set up a cancellation policy?',
+    answer: "Go to Settings > Cancellation Policy. You can set a minimum notice period (e.g. 24 hours) and choose whether to keep the deposit if a client cancels late. This protects your income without you having to have awkward conversations.",
   },
 ]
 
-const STAFF_SERVICES = [
+const REMINDERS = [
   {
-    question: 'How do I set staff working hours?',
-    answer: 'Go to Staff → select a staff member → Working Hours. Set start and end times for each day and toggle days off. These hours control the slots shown on the public booking page for that barber. Set these before sharing your booking link — clients can only book within the hours you define.',
+    question: 'Are reminders sent automatically?',
+    answer: "Yes — once reminders are enabled, BarberBoost handles them for you. Clients get notified before their appointment without you lifting a finger. You can customise the timing (e.g. 24 hours before, 1 hour before) in Settings > Reminders.",
   },
   {
-    question: 'Can I assign specific services to individual barbers?',
-    answer: 'Yes. On each staff member\'s profile you can toggle which services they offer. Clients will only see available slots for barbers who actually perform the requested service. This prevents bookings for services a barber doesn\'t do.',
-  },
-  {
-    question: 'How do I view a specific barber\'s schedule?',
-    answer: 'Use the staff filter on the Bookings page (Day or Week view) to see one barber\'s calendar at a time. In Day view, you\'ll see colour-coded appointments for each barber on a time grid. Switch barbers using the dropdown filter.',
-  },
-  {
-    question: 'How do I temporarily block out time for a barber?',
-    answer: 'Currently the best approach is to create a manual booking for the blocked period (e.g. "Staff Training" or "Holiday") so that slot shows as unavailable on the public booking page. A dedicated blocked-time feature is on the roadmap.',
-  },
-  {
-    question: 'Can I change a service price without affecting old bookings?',
-    answer: 'Yes — updating a service price in Services only affects future bookings. All existing bookings retain the price that was set at the time of booking. You can also manually adjust the price on an individual booking from the booking detail modal.',
-  },
-  {
-    question: 'How many staff members can I have?',
-    answer: 'The Free plan supports 1 staff member, Starter supports 2, Pro supports 8, and Empire supports unlimited. You can upgrade your plan at any time from Settings → Billing. Existing bookings are never affected by plan changes.',
+    question: 'Can I send a message to all my clients at once?',
+    answer: "Yes. Head to Clients > Broadcast Message to send a bulk message — great for promoting a last-minute slot, a price update, or a new service. It goes out via SMS or email depending on what your clients have on file.",
   },
 ]
 
 const BILLING = [
   {
-    question: 'What happens when I hit my booking limit?',
-    answer: 'You\'ll see a warning as you approach the limit. Once reached, new bookings can\'t be created until you upgrade or the monthly limit resets. Existing bookings are never cancelled. The Free plan allows 30 bookings/month; Starter gives you 200; Pro and Empire are unlimited.',
-  },
-  {
-    question: 'Can I upgrade or downgrade mid-month?',
-    answer: 'Yes. Upgrades take effect immediately and you\'re charged a prorated amount for the remainder of the billing period. Downgrades take effect at the start of the next billing cycle — you keep full access until then.',
+    question: 'What does BarberBoost cost?',
+    answer: "BarberBoost is priced to pay for itself with just a few extra bookings per week. You can view your current plan and billing details under Account > Subscription. If you'd like to talk through the best plan for your setup, reply here and we'll sort it.",
   },
   {
     question: 'How do I cancel my subscription?',
-    answer: 'Go to Settings → Billing → Manage Subscription and cancel from the Stripe billing portal. Your account stays active until the end of the current billing period, then reverts to the Free plan. Your data is not deleted.',
-  },
-  {
-    question: 'Where can I find my invoices?',
-    answer: 'All invoices are in Settings → Billing → Billing History and emailed to you automatically each cycle. They include your business name, VAT number (if provided), and a full itemised breakdown.',
-  },
-  {
-    question: 'Do you offer a discount for annual billing?',
-    answer: 'Yes — annual plans give you 2 months free (a 16.7% saving). You can switch to annual billing at any time from Settings → Billing. The full annual amount is charged upfront.',
-  },
-  {
-    question: 'Do you offer refunds?',
-    answer: 'We offer a full refund within 14 days of your first paid subscription if you\'re not happy — no questions asked. For annual plans, a prorated refund is available within 30 days.',
+    answer: "We'd hate to see you go — but if you need to, head to Account > Subscription > Cancel Plan. Your access continues until the end of your current billing period. If something isn't working for you, let us know and we'll do our best to fix it first.",
   },
 ]
 
 const TECHNICAL = [
   {
-    question: 'How do I make sure confirmation emails reach clients?',
-    answer: 'Confirmation emails are sent via Resend using your verified sending domain (noreply@barberboost.app). Check that your RESEND_API_KEY and RESEND_FROM_EMAIL are configured in your environment settings. To test, make a booking with your own email address and check it arrives. If it lands in spam, ask clients to add noreply@barberboost.app to their contacts.',
+    question: "The app isn't loading — what do I do?",
+    answer: "Sorry about that. Try these steps in order: (1) Close and reopen the app, (2) Check your internet connection, (3) Clear your app cache in your phone settings, (4) Uninstall and reinstall BarberBoost. If it's still not working after that, reply here with your device type and we'll get it sorted fast.",
   },
   {
-    question: 'A client says they didn\'t receive their confirmation email — what do I do?',
-    answer: 'First, ask them to check their spam or junk folder. The email comes from noreply@barberboost.app with the subject "Booking Confirmed [BB-XXXXXXXX]". If it\'s not there, open the booking detail modal in the dashboard — the client\'s email address is shown there so you can verify it was entered correctly. You can resend the details manually by copying the booking reference to them via WhatsApp or SMS.',
+    question: "I can't log in to my account.",
+    answer: "No problem — tap \"Forgot Password\" on the login screen and we'll send a reset link to your email. If you don't see it within a couple of minutes, check your spam folder. Still stuck? Reply here with the email address on your account and we'll manually reset it for you.",
   },
   {
-    question: 'Which browsers are supported?',
-    answer: 'BarberBoost works on the latest versions of Chrome, Safari, Firefox, and Edge. Chrome and Safari give the best experience. The dashboard is fully responsive on mobile browsers — no app download required. A native iOS and Android app is on the roadmap for Q3 2026.',
-  },
-  {
-    question: 'Is my data backed up?',
-    answer: 'Yes — your data is stored in Supabase with continuous backups and point-in-time recovery. We maintain 30-day backups and can restore to any point within that window if needed. Your data is encrypted at rest and in transit.',
-  },
-  {
-    question: 'Can I export my data?',
-    answer: 'Yes — you can export bookings, clients, and financial reports as CSV from the relevant pages. On Pro and Empire plans, you can also export analytics reports. Data export is available for 90 days after cancelling your subscription.',
-  },
-  {
-    question: 'How do I reset my password?',
-    answer: 'Click "Forgot password" on the login page and enter your email address. You\'ll receive a reset link within a minute — check your spam folder if it doesn\'t appear. You can also change your password at any time from Settings → Account.',
-  },
-  {
-    question: 'How do I contact support?',
-    answer: 'Use the Contact page to send us a message and we\'ll reply within one business day. Starter and Pro customers get email support. Empire customers have access to priority support and a dedicated onboarding call.',
+    question: 'How do I add a new service or change my prices?',
+    answer: "Go to Services in the main menu, tap the service you want to edit (or tap + to add a new one), update the name, price, and duration, then hit Save. Changes go live on your booking page immediately.",
   },
 ]
 
@@ -723,20 +635,20 @@ export default function HelpPage() {
       </section>
 
       {/* ── FAQ sections ──────────────────────────────────────────────────── */}
-      <div id="bookings" className="border-t border-[#c9a84c]/5">
-        <FAQ items={GETTING_STARTED} title="GETTING STARTED" subtitle="Setting up your shop and taking your first booking." />
+      <div id="booking-setup" className="border-t border-[#c9a84c]/5">
+        <FAQ items={BOOKING_SETUP} title="BOOKING & APPOINTMENT SETUP" subtitle="Getting your booking page live and letting clients book themselves in." />
       </div>
-      <div id="bookings-faq" className="border-t border-[#c9a84c]/5">
-        <FAQ items={BOOKINGS_CLIENTS} title="BOOKINGS & CLIENTS" subtitle="Managing your schedule, references, and client database." />
+      <div id="noshow" className="border-t border-[#c9a84c]/5">
+        <FAQ items={NOSHOW_CANCELLATION} title="NO-SHOWS & CANCELLATIONS" subtitle="Protecting your time and reducing missed appointments." />
       </div>
-      <div id="staff" className="border-t border-[#c9a84c]/5">
-        <FAQ items={STAFF_SERVICES} title="STAFF & SERVICES" subtitle="Setting up your team, hours, and service menu." />
+      <div id="reminders" className="border-t border-[#c9a84c]/5">
+        <FAQ items={REMINDERS} title="CLIENT REMINDERS & NOTIFICATIONS" subtitle="Automated messages that go out so you don't have to." />
       </div>
       <div id="billing" className="border-t border-[#c9a84c]/5">
-        <FAQ items={BILLING} title="BILLING & PLANS" subtitle="Subscriptions, invoices, and plan changes." />
+        <FAQ items={BILLING} title="BILLING & SUBSCRIPTION" subtitle="Plans, pricing, and how to manage your account." />
       </div>
       <div id="technical" className="border-t border-[#c9a84c]/5">
-        <FAQ items={TECHNICAL} title="TECHNICAL" subtitle="Email delivery, browsers, security, and data exports." />
+        <FAQ items={TECHNICAL} title="TECHNICAL ISSUES & GETTING STARTED" subtitle="Troubleshooting common problems and making changes to your setup." />
       </div>
 
       {/* ── Still stuck CTA ───────────────────────────────────────────────── */}
