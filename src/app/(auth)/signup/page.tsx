@@ -93,6 +93,17 @@ export default function SignupPage() {
       return
     }
 
+    // Notify BarberBoost of the new signup (non-blocking)
+    fetch('/api/signup-notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email:    data.email,
+        fullName: data.full_name,
+        shopName: data.shop_name,
+      }),
+    }).catch(() => {})
+
     // Supabase may require email confirmation depending on project settings.
     // If auto-confirm is ON → user is signed in; redirect to dashboard.
     // If email confirm is ON → show "check your inbox" message.

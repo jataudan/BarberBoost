@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { welcomeEmail } from '@/lib/email/templates'
+import { welcomeEmail, newSignupAlert } from '@/lib/email/templates'
 
 export const dynamic = 'force-dynamic'
 
@@ -87,16 +87,25 @@ export async function GET(request: NextRequest) {
           const { Resend: ResendClient } = await import('resend')
           const resend = new ResendClient(process.env.RESEND_API_KEY)
           const FROM   = process.env.RESEND_FROM_EMAIL ?? 'BarberBoost <noreply@barberboost.app>'
-          const { error: emailErr } = await resend.emails.send({
-            from: FROM,
-            to:   user.email,
-            subject: payload.subject,
-            html:    payload.html,
-            text:    payload.text,
+          const NOTIFY = process.env.NOTIFY_EMAIL ?? 'barberboost.app@gmail.com'
+
+          const signedUpAt = new Date().toLocaleString('en-GB', {
+            timeZone: 'Europe/London', dateStyle: 'full', timeStyle: 'short',
           })
-          if (emailErr) console.error('[auth/callback] welcome email error:', emailErr.message)
+
+          // Welcome email → new user
+          const { error: welcomeErr } = await resend.emails.send({
+            from: FROM, to: user.email,
+            subject: payload.subject, html: payload.html, text: payload.text,
+          })
+          if (welcomeErr) console.error('[auth/callback] welcome email error:', welcomeErr.message)
+
+          // Internal alert → BarberBoost (confirmed signup)
+          const alertTmpl = newSignupAlert({ ownerName, shopName, email: user.email, signedUpAt })
+          const { error: alertErr } = await resend.emails.send({ from: FROM, to: NOTIFY, ...alertTmpl })
+          if (alertErr) console.error('[auth/callback] signup alert error:', alertErr.message)
         } catch (emailEx) {
-          console.error('[auth/callback] welcome email exception:', emailEx)
+          console.error('[auth/callback] email exception:', emailEx)
         }
       }
 

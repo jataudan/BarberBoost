@@ -502,3 +502,44 @@ export function staffInvitation(data: StaffInvitationData): { subject: string; h
     text,
   }
 }
+
+// ── 8. New signup alert (internal — sent to BarberBoost) ──────────────────
+
+export interface NewSignupAlertData {
+  ownerName: string
+  shopName:  string
+  email:     string
+  signedUpAt: string
+}
+
+export function newSignupAlert(data: NewSignupAlertData): { subject: string; html: string; text: string } {
+  const content = `
+    <h2 style="margin:0 0 16px;font-size:20px;font-weight:700;color:${TEXT};">New signup on BarberBoost</h2>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+      ${detailRow('Name',       data.ownerName)}
+      ${detailRow('Email',      data.email)}
+      ${detailRow('Shop name',  data.shopName)}
+      ${detailRow('Signed up',  data.signedUpAt)}
+    </table>
+
+    ${ctaButton('VIEW SUPABASE DASHBOARD', 'https://supabase.com/dashboard')}
+  `
+
+  const text = [
+    `NEW SIGNUP ON BARBERBOOST`,
+    '',
+    `Name:       ${data.ownerName}`,
+    `Email:      ${data.email}`,
+    `Shop name:  ${data.shopName}`,
+    `Signed up:  ${data.signedUpAt}`,
+    '',
+    `Supabase dashboard: https://supabase.com/dashboard`,
+  ].join('\n')
+
+  return {
+    subject: `New signup: ${data.ownerName} — ${data.shopName}`,
+    html:    emailShell(content, 'BarberBoost'),
+    text,
+  }
+}
