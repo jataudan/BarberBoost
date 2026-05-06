@@ -5,6 +5,12 @@
  */
 
 // ── Shared primitives ─────────────────────────────────────────────────────
+
+function esc(s: string | null | undefined): string {
+  if (!s) return ''
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+}
+
 const GOLD    = '#c9a84c'
 const BG      = '#0f0f0f'
 const SURFACE = '#1a1a1a'
@@ -13,9 +19,10 @@ const MUTED   = '#71717a'
 const BORDER  = '#27272a'
 
 function emailShell(content: string, shopName: string): string {
+  const safeName = esc(shopName)
   return `<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${shopName}</title></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${safeName}</title></head>
 <body style="margin:0;padding:0;background:${BG};font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:${TEXT};">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:${BG};padding:40px 16px;">
     <tr><td align="center">
@@ -24,7 +31,7 @@ function emailShell(content: string, shopName: string): string {
         <!-- Logo bar -->
         <tr><td style="padding-bottom:28px;text-align:center;">
           <span style="font-size:22px;font-weight:900;letter-spacing:0.12em;color:${GOLD};">BARBERBOOST</span>
-          <div style="font-size:12px;color:${MUTED};margin-top:4px;letter-spacing:0.06em;">${shopName.toUpperCase()}</div>
+          <div style="font-size:12px;color:${MUTED};margin-top:4px;letter-spacing:0.06em;">${safeName.toUpperCase()}</div>
         </td></tr>
 
         <!-- Card -->
@@ -34,7 +41,7 @@ function emailShell(content: string, shopName: string): string {
 
         <!-- Footer -->
         <tr><td style="padding-top:24px;text-align:center;font-size:11px;color:${MUTED};line-height:1.6;">
-          This email was sent by ${shopName} via BarberBoost.<br>
+          This email was sent by ${safeName} via BarberBoost.<br>
           If you did not make this booking, please ignore this email.
         </td></tr>
 
@@ -88,7 +95,7 @@ export function bookingConfirmation(data: BookingEmailData) {
     <div style="text-align:center;margin-bottom:24px;">
       <div style="display:inline-block;width:48px;height:48px;background:rgba(201,168,76,0.12);border-radius:50%;border:1px solid rgba(201,168,76,0.25);line-height:48px;font-size:24px;margin-bottom:12px;">✓</div>
       <h1 style="margin:0;font-size:22px;font-weight:700;color:${TEXT};letter-spacing:0.04em;">Booking Confirmed</h1>
-      <p style="margin:8px 0 0;font-size:14px;color:${MUTED};">Hi ${data.clientName}, see you soon!</p>
+      <p style="margin:8px 0 0;font-size:14px;color:${MUTED};">Hi ${esc(data.clientName)}, see you soon!</p>
     </div>
 
     <!-- Booking reference block -->
@@ -99,19 +106,19 @@ export function bookingConfirmation(data: BookingEmailData) {
     </div>
 
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
-      ${detailRow('Service', data.serviceName)}
-      ${detailRow('Barber', data.staffName)}
+      ${detailRow('Service', esc(data.serviceName))}
+      ${detailRow('Barber', esc(data.staffName))}
       ${detailRow('Date', data.date)}
       ${detailRow('Time', data.startTime)}
       ${detailRow('Duration', `${data.durationMinutes} min`)}
       ${detailRow('Total', formatted)}
       ${depositFormatted ? detailRow('Deposit paid', depositFormatted) : ''}
-      ${data.shopAddress ? detailRow('Location', data.shopAddress) : ''}
+      ${data.shopAddress ? detailRow('Location', esc(data.shopAddress)) : ''}
     </table>
 
     <p style="margin-top:24px;font-size:13px;color:${MUTED};line-height:1.6;">
       Need to cancel or reschedule? Please contact us at least 24 hours in advance.
-      ${data.shopPhone ? `Call us on <a href="tel:${data.shopPhone}" style="color:${GOLD};text-decoration:none;">${data.shopPhone}</a>.` : ''}
+      ${data.shopPhone ? `Call us on <a href="tel:${esc(data.shopPhone)}" style="color:${GOLD};text-decoration:none;">${esc(data.shopPhone)}</a>.` : ''}
     </p>
   `
   const text = [
@@ -150,20 +157,20 @@ export function bookingReminder(data: BookingEmailData) {
     <div style="text-align:center;margin-bottom:28px;">
       <div style="display:inline-block;width:48px;height:48px;background:rgba(201,168,76,0.08);border-radius:50%;border:1px solid rgba(201,168,76,0.2);line-height:48px;font-size:22px;margin-bottom:12px;">⏰</div>
       <h1 style="margin:0;font-size:22px;font-weight:700;color:${TEXT};letter-spacing:0.04em;">See You Tomorrow</h1>
-      <p style="margin:8px 0 0;font-size:14px;color:${MUTED};">Hi ${data.clientName}, your appointment is in 24 hours.</p>
+      <p style="margin:8px 0 0;font-size:14px;color:${MUTED};">Hi ${esc(data.clientName)}, your appointment is in 24 hours.</p>
     </div>
 
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
-      ${detailRow('Service', data.serviceName)}
-      ${detailRow('Barber', data.staffName)}
+      ${detailRow('Service', esc(data.serviceName))}
+      ${detailRow('Barber', esc(data.staffName))}
       ${detailRow('Date', data.date)}
       ${detailRow('Time', data.startTime)}
-      ${data.shopAddress ? detailRow('Location', data.shopAddress) : ''}
+      ${data.shopAddress ? detailRow('Location', esc(data.shopAddress)) : ''}
     </table>
 
     <p style="font-size:13px;color:${MUTED};line-height:1.6;margin-top:4px;">
       If you need to cancel, please do so now to avoid a cancellation fee.
-      ${data.shopPhone ? `Call <a href="tel:${data.shopPhone}" style="color:${GOLD};text-decoration:none;">${data.shopPhone}</a>.` : ''}
+      ${data.shopPhone ? `Call <a href="tel:${esc(data.shopPhone)}" style="color:${GOLD};text-decoration:none;">${esc(data.shopPhone)}</a>.` : ''}
     </p>
   `
   const text = [
@@ -199,12 +206,12 @@ export function bookingCancellation(data: BookingEmailData) {
     <div style="text-align:center;margin-bottom:28px;">
       <div style="display:inline-block;width:48px;height:48px;background:rgba(239,68,68,0.1);border-radius:50%;border:1px solid rgba(239,68,68,0.2);line-height:48px;font-size:22px;margin-bottom:12px;">✕</div>
       <h1 style="margin:0;font-size:22px;font-weight:700;color:${TEXT};letter-spacing:0.04em;">Booking Cancelled</h1>
-      <p style="margin:8px 0 0;font-size:14px;color:${MUTED};">Hi ${data.clientName}, your booking has been cancelled.</p>
+      <p style="margin:8px 0 0;font-size:14px;color:${MUTED};">Hi ${esc(data.clientName)}, your booking has been cancelled.</p>
     </div>
 
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
       ${detailRow('Reference', data.bookingRef)}
-      ${detailRow('Service', data.serviceName)}
+      ${detailRow('Service', esc(data.serviceName))}
       ${detailRow('Was scheduled', `${data.date} at ${data.startTime}`)}
     </table>
 
@@ -245,11 +252,11 @@ export function noShowFollowup(data: BookingEmailData) {
     <div style="text-align:center;margin-bottom:28px;">
       <div style="display:inline-block;width:48px;height:48px;background:rgba(161,161,170,0.1);border-radius:50%;border:1px solid rgba(161,161,170,0.2);line-height:48px;font-size:22px;margin-bottom:12px;">👋</div>
       <h1 style="margin:0;font-size:22px;font-weight:700;color:${TEXT};letter-spacing:0.04em;">We Missed You</h1>
-      <p style="margin:8px 0 0;font-size:14px;color:${MUTED};">Hi ${data.clientName}, we didn&apos;t see you yesterday.</p>
+      <p style="margin:8px 0 0;font-size:14px;color:${MUTED};">Hi ${esc(data.clientName)}, we didn&apos;t see you yesterday.</p>
     </div>
 
     <p style="font-size:14px;color:${TEXT};line-height:1.6;margin-bottom:20px;">
-      You had a <strong>${data.serviceName}</strong> booked with <strong>${data.staffName}</strong>
+      You had a <strong>${esc(data.serviceName)}</strong> booked with <strong>${esc(data.staffName)}</strong>
       on ${data.date} at ${data.startTime}. We hope everything is okay!
     </p>
 
@@ -306,9 +313,9 @@ export function lowStockAlert(data: LowStockAlertData) {
     return `
       <tr>
         <td style="padding:10px 0;border-bottom:1px solid ${BORDER};font-size:13px;color:${TEXT};">
-          <strong>${item.name}</strong>
-          ${item.category ? `<span style="color:${MUTED};font-size:11px;margin-left:6px;">${item.category}</span>` : ''}
-          ${item.sku ? `<br><span style="color:${MUTED};font-size:11px;font-family:monospace;">${item.sku}</span>` : ''}
+          <strong>${esc(item.name)}</strong>
+          ${item.category ? `<span style="color:${MUTED};font-size:11px;margin-left:6px;">${esc(item.category)}</span>` : ''}
+          ${item.sku ? `<br><span style="color:${MUTED};font-size:11px;font-family:monospace;">${esc(item.sku)}</span>` : ''}
         </td>
         <td style="padding:10px 0;border-bottom:1px solid ${BORDER};text-align:center;font-size:13px;">
           <span style="color:${colour};font-weight:700;">${item.quantity}</span>
@@ -324,11 +331,11 @@ export function lowStockAlert(data: LowStockAlertData) {
     <div style="text-align:center;margin-bottom:28px;">
       <div style="display:inline-block;width:48px;height:48px;background:rgba(245,158,11,0.12);border-radius:50%;border:1px solid rgba(245,158,11,0.3);line-height:48px;font-size:24px;margin-bottom:12px;">📦</div>
       <h1 style="margin:0;font-size:22px;font-weight:700;color:${TEXT};letter-spacing:0.04em;">Low Stock Alert</h1>
-      <p style="margin:8px 0 0;font-size:14px;color:${MUTED};">${data.items.length} item${data.items.length !== 1 ? 's' : ''} need restocking at ${data.shopName}</p>
+      <p style="margin:8px 0 0;font-size:14px;color:${MUTED};">${data.items.length} item${data.items.length !== 1 ? 's' : ''} need restocking at ${esc(data.shopName)}</p>
     </div>
 
     <p style="font-size:14px;color:${TEXT};line-height:1.6;margin-bottom:20px;">
-      Hi ${data.ownerName}, the following items in your inventory have reached or fallen below their low-stock threshold:
+      Hi ${esc(data.ownerName)}, the following items in your inventory have reached or fallen below their low-stock threshold:
     </p>
 
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
@@ -386,7 +393,7 @@ export function welcomeEmail(data: WelcomeEmailData) {
     <div style="text-align:center;margin-bottom:28px;">
       <div style="display:inline-block;width:52px;height:52px;background:rgba(201,168,76,0.12);border-radius:50%;border:1px solid rgba(201,168,76,0.25);line-height:52px;font-size:26px;margin-bottom:12px;">🔥</div>
       <h1 style="margin:0;font-size:24px;font-weight:900;color:${TEXT};letter-spacing:0.06em;">WELCOME TO BARBERBOOST</h1>
-      <p style="margin:10px 0 0;font-size:14px;color:${MUTED};">Hi ${data.ownerName} — let&apos;s get ${data.shopName} set up.</p>
+      <p style="margin:10px 0 0;font-size:14px;color:${MUTED};">Hi ${esc(data.ownerName)} — let&apos;s get ${esc(data.shopName)} set up.</p>
     </div>
 
     <p style="font-size:14px;color:${TEXT};line-height:1.7;margin-bottom:20px;">
@@ -461,15 +468,15 @@ export interface StaffInvitationData {
 
 export function staffInvitation(data: StaffInvitationData): { subject: string; html: string; text: string } {
   const content = `
-    <h2 style="margin:0 0 8px;font-size:20px;font-weight:700;color:${TEXT};">You've been added to ${data.shopName}</h2>
+    <h2 style="margin:0 0 8px;font-size:20px;font-weight:700;color:${TEXT};">You've been added to ${esc(data.shopName)}</h2>
     <p style="margin:0 0 24px;font-size:14px;color:${MUTED};line-height:1.6;">
-      ${data.ownerName ? `${data.ownerName} has` : 'You have been'} added you as a team member on BarberBoost.
+      ${data.ownerName ? `${esc(data.ownerName)} has` : 'You have been'} added you as a team member on BarberBoost.
       Clients can now book appointments directly with you online.
     </p>
 
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
-      ${detailRow('Shop', data.shopName)}
-      ${detailRow('Your name', data.staffName)}
+      ${detailRow('Shop', esc(data.shopName))}
+      ${detailRow('Your name', esc(data.staffName))}
     </table>
 
     <p style="font-size:13px;color:${MUTED};line-height:1.6;margin:0 0 4px;">
@@ -517,9 +524,9 @@ export function newSignupAlert(data: NewSignupAlertData): { subject: string; htm
     <h2 style="margin:0 0 16px;font-size:20px;font-weight:700;color:${TEXT};">New signup on BarberBoost</h2>
 
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
-      ${detailRow('Name',       data.ownerName)}
-      ${detailRow('Email',      data.email)}
-      ${detailRow('Shop name',  data.shopName)}
+      ${detailRow('Name',       esc(data.ownerName))}
+      ${detailRow('Email',      esc(data.email))}
+      ${detailRow('Shop name',  esc(data.shopName))}
       ${detailRow('Signed up',  data.signedUpAt)}
     </table>
 
