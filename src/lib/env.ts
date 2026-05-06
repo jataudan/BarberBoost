@@ -24,7 +24,8 @@ const envSchema = z.object({
 
   // ── Resend (email) ────────────────────────────────────────────────────────
   RESEND_API_KEY:    z.string().startsWith('re_', 'RESEND_API_KEY must start with re_'),
-  RESEND_FROM_EMAIL: z.string().email('RESEND_FROM_EMAIL must be a valid email address'),
+  // Accepts plain email OR "Display Name <email>" format (both valid for Resend)
+  RESEND_FROM_EMAIL: z.string().min(1, 'RESEND_FROM_EMAIL is required'),
 
   // ── Anthropic (AI Copy — Empire plan feature) ─────────────────────────────
   ANTHROPIC_API_KEY: z.string().startsWith('sk-ant-', 'ANTHROPIC_API_KEY must start with sk-ant-').optional(),
@@ -74,6 +75,6 @@ export const env = {
   RESEND_API_KEY:             process.env.RESEND_API_KEY!,
   RESEND_FROM_EMAIL:          process.env.RESEND_FROM_EMAIL!,
   APP_URL:                    process.env.NEXT_PUBLIC_APP_URL!,
-  SUPPORT_EMAIL:              process.env.SUPPORT_EMAIL ?? 'support@barberboost.com',
+  SUPPORT_EMAIL:              process.env.SUPPORT_EMAIL ?? 'support@barberboost.app',
   ANTHROPIC_API_KEY:          process.env.ANTHROPIC_API_KEY,
 } as const

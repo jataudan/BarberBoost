@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { lowStockAlert } from '@/lib/email/templates'
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://barberboost.com'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://barberboost.app'
 
 // ── Low-stock email helper ────────────────────────────────────────────────
 
@@ -29,12 +29,12 @@ function sendLowStockEmail(
     }],
     dashboardUrl: `${APP_URL}/inventory`,
   })
-  import('resend').then(({ Resend: ResendClient }) => {
+  import('resend').then(async ({ Resend: ResendClient }) => {
     const resend = new ResendClient(process.env.RESEND_API_KEY)
-    const FROM   = process.env.RESEND_FROM_EMAIL ?? 'inventory@barberboost.com'
-    resend.emails.send({ from: FROM, to: ownerEmail, subject: payload.subject, html: payload.html })
-      .catch(() => {})
-  }).catch(() => {})
+    const FROM   = process.env.RESEND_FROM_EMAIL ?? 'BarberBoost <noreply@barberboost.app>'
+    const { error } = await resend.emails.send({ from: FROM, to: ownerEmail, subject: payload.subject, html: payload.html, text: payload.text })
+    if (error) console.error('[inventory] low-stock email error:', error.message)
+  }).catch((err) => console.error('[inventory] low-stock email exception:', err))
 }
 
 // ── GET — list inventory ──────────────────────────────────────────────────

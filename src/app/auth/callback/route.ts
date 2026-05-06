@@ -5,8 +5,8 @@ import { welcomeEmail } from '@/lib/email/templates'
 
 export const dynamic = 'force-dynamic'
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://barberboost.com'
-const SUPPORT = process.env.SUPPORT_EMAIL ?? 'support@barberboost.com'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://barberboost.app'
+const SUPPORT = process.env.SUPPORT_EMAIL ?? 'support@barberboost.app'
 
 /**
  * Supabase Auth callback handler.
@@ -83,11 +83,21 @@ export async function GET(request: NextRequest) {
       })
 
       if (user.email) {
-        const { Resend: ResendClient } = await import('resend')
-        const resend = new ResendClient(process.env.RESEND_API_KEY)
-        const FROM   = process.env.RESEND_FROM_EMAIL!
-        resend.emails.send({ from: FROM, to: user.email, subject: payload.subject, html: payload.html })
-          .catch(() => {})
+        try {
+          const { Resend: ResendClient } = await import('resend')
+          const resend = new ResendClient(process.env.RESEND_API_KEY)
+          const FROM   = process.env.RESEND_FROM_EMAIL ?? 'BarberBoost <noreply@barberboost.app>'
+          const { error: emailErr } = await resend.emails.send({
+            from: FROM,
+            to:   user.email,
+            subject: payload.subject,
+            html:    payload.html,
+            text:    payload.text,
+          })
+          if (emailErr) console.error('[auth/callback] welcome email error:', emailErr.message)
+        } catch (emailEx) {
+          console.error('[auth/callback] welcome email exception:', emailEx)
+        }
       }
 
       // Mark so future logins don't resend
