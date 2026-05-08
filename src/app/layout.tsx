@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Geist, Bebas_Neue, DM_Sans } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
+import Script from 'next/script'
 import './globals.css'
 
 // Validate env vars on server startup
@@ -83,6 +84,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         <Analytics />
         <SpeedInsights />
+        <Script
+          id="apollo-tracker"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `function initApollo(){var n=Math.random().toString(36).substring(7),o=document.createElement("script");o.src="https://assets.apollo.io/micro/website-tracker/tracker.iife.js?nocache="+n,o.async=!0,o.defer=!0,o.onload=function(){window.trackingFunctions.onLoad({appId:"69fdc7e30f2aeb00112db15b"})},document.head.appendChild(o)}initApollo();`,
+          }}
+        />
       </body>
     </html>
   )

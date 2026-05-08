@@ -52,7 +52,7 @@ export async function sendWhatsApp(to: string, body: string): Promise<void> {
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({})) as { message?: string }
-    console.error('[whatsapp] Twilio error:', err.message ?? res.status)
+    throw new Error(`Twilio ${res.status}: ${err.message ?? 'unknown error'}`)
   }
 }
 
