@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server'
 
 const CONTACT_RECIPIENT = process.env.CONTACT_EMAIL ?? process.env.SUPPORT_EMAIL ?? 'webxcelld@gmail.com'
 
+function esc(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+}
+
 export async function POST(request: Request) {
   try {
     const { name, email, subject, message } = await request.json()
@@ -18,12 +22,12 @@ export async function POST(request: Request) {
       from:    FROM,
       to:      CONTACT_RECIPIENT,
       replyTo: email,
-      subject: `[Contact] ${subject}`,
+      subject: `[Contact] ${esc(subject)}`,
       html: `
-        <p><strong>From:</strong> ${name} &lt;${email}&gt;</p>
-        <p><strong>Subject:</strong> ${subject}</p>
+        <p><strong>From:</strong> ${esc(name)} &lt;${esc(email)}&gt;</p>
+        <p><strong>Subject:</strong> ${esc(subject)}</p>
         <hr />
-        <p>${message.replace(/\n/g, '<br />')}</p>
+        <p>${esc(message).replace(/\n/g, '<br />')}</p>
       `,
       text: `From: ${name} <${email}>\nSubject: ${subject}\n\n${message}`,
     })

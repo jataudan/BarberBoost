@@ -125,7 +125,7 @@ export async function POST(request: Request) {
         ? new Date(inv.next_payment_attempt * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
         : null
       if (customerEmail) {
-        sendPaymentFailedEmail(customerEmail, inv.amount_due as number, inv.currency as string, nextRetry)
+        await sendPaymentFailedEmail(customerEmail, inv.amount_due as number, inv.currency as string, nextRetry)
       }
       // Mark subscription past_due
       if (inv.subscription) {
@@ -140,7 +140,7 @@ export async function POST(request: Request) {
       const customerEmail = inv.customer_email as string | null
       if (customerEmail && inv.billing_reason !== 'subscription_create') {
         // Only send receipt for renewals (not the initial charge — checkout handles that)
-        sendPaymentReceiptEmail(customerEmail, inv.amount_paid as number, inv.currency as string, inv.hosted_invoice_url as string | null)
+        await sendPaymentReceiptEmail(customerEmail, inv.amount_paid as number, inv.currency as string, inv.hosted_invoice_url as string | null)
       }
       // Ensure subscription status is active
       if (inv.subscription) {

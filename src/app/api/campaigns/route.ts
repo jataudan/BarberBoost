@@ -89,7 +89,7 @@ export async function PATCH(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { id, ...updates } = body
+  const { id } = body
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
   const { data: existing } = await supabase.from('campaigns').select('shop_id').eq('id', id).single()
@@ -97,7 +97,14 @@ export async function PATCH(request: NextRequest) {
   const { data: shop } = await supabase.from('shops').select('id').eq('id', existing.shop_id).eq('owner_id', user.id).single()
   if (!shop) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const { data, error } = await supabase.from('campaigns').update(updates).eq('id', id).select().single()
+  // Explicit whitelist — prevents mass-assignment of shop_id, created_at, etc.
+  const ALLOWED = ['name', 'type', 'subject', 'content', 'target_segment', 'status', 'scheduled_at', 'sent_count', 'open_rate', 'sent_at']
+  const safeUpdates: Record<string, unknown> = {}
+  for (const key of ALLOWED) {
+    if (Object.prototype.hasOwnProperty.call(body, key)) safeUpdates[key] = body[key]
+  }
+
+  const { data, error } = await supabase.from('campaigns').update(safeUpdates).eq('id', id).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })
 }

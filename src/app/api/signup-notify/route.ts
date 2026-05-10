@@ -1,9 +1,15 @@
-import { NextResponse } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
 import { newSignupAlert } from '@/lib/email/templates'
+import { rateLimit } from '@/lib/rate-limit'
 
 const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL ?? 'barberboost.app@gmail.com'
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  const rl = rateLimit(`signup_notify:${ip}`, 5, 60)
+  if (!rl.allowed) {
+    return NextResponse.json({ ok: true }) // silently absorb — never block the signup UX
+  }
   try {
     const { email, fullName, shopName } = await request.json()
 

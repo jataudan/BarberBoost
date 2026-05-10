@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 import { getStripe } from '@/lib/stripe/config'
 import { createClient } from '@/lib/supabase/server'
+import { PLANS } from '@/lib/stripe/plans'
+
+const VALID_PRICE_IDS = new Set(
+  Object.values(PLANS).map(p => p.priceId).filter(Boolean) as string[]
+)
 
 export async function POST(request: Request) {
   try {
@@ -11,6 +16,7 @@ export async function POST(request: Request) {
     const body    = await request.formData()
     const priceId = body.get('priceId') as string
     if (!priceId) return NextResponse.json({ error: 'Price ID required' }, { status: 400 })
+    if (!VALID_PRICE_IDS.has(priceId)) return NextResponse.json({ error: 'Invalid price ID' }, { status: 400 })
 
     // Get shop for metadata
     const { data: shop } = await supabase.from('shops').select('id').eq('owner_id', user.id).single()
