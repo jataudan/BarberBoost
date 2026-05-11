@@ -61,6 +61,50 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/reset-password/update', origin))
   }
 
+  // Safeguard: ensure shop + subscription rows exist.
+  // The on_auth_user_created DB trigger normally handles this at signup, but
+  // this fallback catches any case where the trigger was absent or failed.
+  if (user) {
+    try {
+      const { data: existingShop } = await supabase
+        .from('shops')
+        .select('id')
+        .eq('owner_id', user.id)
+        .maybeSingle()
+
+      if (!existingShop) {
+        const rawName = (user.user_metadata?.shop_name as string | undefined)?.trim() || 'My Barbershop'
+        const slug = (
+          rawName
+            .replace(/[^a-zA-Z0-9\s-]/g, '')
+            .replace(/\s+/g, '-')
+            .toLowerCase()
+            .replace(/^-+|-+$/, '') || 'shop'
+        ) + '-' + user.id.slice(0, 8)
+
+        const { data: newShop } = await supabase
+          .from('shops')
+          .insert({ owner_id: user.id, name: rawName, slug, email: user.email ?? null })
+          .select('id')
+          .single()
+
+        if (newShop) {
+          const trialEnd = new Date()
+          trialEnd.setDate(trialEnd.getDate() + 14)
+          await supabase.from('subscriptions').insert({
+            shop_id:   newShop.id,
+            owner_id:  user.id,
+            plan:      'pro',
+            status:    'trialing',
+            trial_end: trialEnd.toISOString(),
+          })
+        }
+      }
+    } catch (safeguardErr) {
+      console.error('[auth/callback] shop safeguard error:', safeguardErr)
+    }
+  }
+
   // Send welcome email on first-ever confirmation (not on every re-login)
   if (user && !user.user_metadata?.welcome_sent) {
     try {
