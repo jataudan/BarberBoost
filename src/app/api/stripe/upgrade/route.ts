@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const updated = await stripe.subscriptions.update(sub.stripe_subscription_id, {
       items: [{ id: currentItem.id, price: newPriceId }],
-      proration_behavior: 'create_prorations',
+      proration_behavior: 'always_invoice',
     }) as any
 
     // Mirror the change in the DB immediately (webhook will also fire as a backup)
