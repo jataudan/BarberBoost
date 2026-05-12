@@ -205,14 +205,26 @@ export default function BillingPage() {
                 </ul>
 
                 {isUpgrade && (
-                  <form action="/api/stripe/checkout" method="POST">
-                    <input type="hidden" name="planId" value={planId} />
-                    <button type="submit"
-                      className={`w-full flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-colors ${accent.cta}`}>
-                      <Zap className="w-3.5 h-3.5" /> Upgrade to {plan.name}
+                  sub?.stripe_customer_id ? (
+                    // Already a paid subscriber — upgrade via Customer Portal
+                    // (Stripe handles proration and plan switching there)
+                    <button type="button" onClick={handleManageBilling} disabled={portalLoading}
+                      className={`w-full flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-colors disabled:opacity-50 ${accent.cta}`}>
+                      {portalLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                      Upgrade to {plan.name}
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
-                  </form>
+                  ) : (
+                    // Free plan — create new Stripe Checkout session
+                    <form action="/api/stripe/checkout" method="POST">
+                      <input type="hidden" name="planId" value={planId} />
+                      <button type="submit"
+                        className={`w-full flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-colors ${accent.cta}`}>
+                        <Zap className="w-3.5 h-3.5" /> Upgrade to {plan.name}
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </form>
+                  )
                 )}
                 {isCurrent && (
                   <div className="flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-semibold bg-white/[0.04] text-zinc-500">
