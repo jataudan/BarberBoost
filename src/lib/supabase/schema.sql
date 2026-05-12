@@ -478,8 +478,8 @@ BEGIN
   VALUES (NEW.id, raw_name, raw_slug, NEW.email)
   RETURNING id INTO new_shop_id;
 
-  INSERT INTO public.subscriptions (shop_id, owner_id, plan, status, trial_end)
-  VALUES (new_shop_id, NEW.id, 'pro', 'trialing', NOW() + INTERVAL '14 days');
+  INSERT INTO public.subscriptions (shop_id, owner_id, plan, status)
+  VALUES (new_shop_id, NEW.id, 'free', 'active');
 
   RETURN NEW;
 END;

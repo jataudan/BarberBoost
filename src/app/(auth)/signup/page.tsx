@@ -1,15 +1,23 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Eye, EyeOff, Loader2, Scissors, AlertCircle } from 'lucide-react'
+import { Eye, EyeOff, Loader2, Scissors, AlertCircle, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { PLANS, type PlanId } from '@/lib/stripe/plans'
 
-// ── Zod v4 schema ──────────────────────────────────────────────
+const PAID_PLANS: PlanId[] = ['starter', 'pro', 'empire']
+
+const PLAN_ACCENT: Record<string, { border: string; text: string; bg: string }> = {
+  starter: { border: 'border-indigo-500/30', text: 'text-indigo-300',  bg: 'bg-indigo-500/8' },
+  pro:     { border: 'border-[#c9a84c]/30',  text: 'text-[#c9a84c]',  bg: 'bg-[#c9a84c]/8'  },
+  empire:  { border: 'border-emerald-500/30',text: 'text-emerald-300', bg: 'bg-emerald-500/8' },
+}
+
 const schema = z
   .object({
     shop_name: z.string().min(2, 'Shop name must be at least 2 characters'),
@@ -29,16 +37,7 @@ const schema = z
 
 type FormData = z.infer<typeof schema>
 
-// ── Reusable field wrapper ─────────────────────────────────────
-function Field({
-  label,
-  error,
-  children,
-}: {
-  label: string
-  error?: string
-  children: React.ReactNode
-}) {
+function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
       <label className="block text-xs font-medium text-zinc-400">{label}</label>
@@ -58,18 +57,22 @@ const INPUT_BASE =
 const INPUT_NORMAL = `${INPUT_BASE} border-[#2a2a2a] focus:border-[#c9a84c]/60 focus:ring-1 focus:ring-[#c9a84c]/20`
 const INPUT_ERROR  = `${INPUT_BASE} border-red-500/40 focus:border-red-500/60 focus:ring-1 focus:ring-red-500/20`
 
-export default function SignupPage() {
+function SignupForm() {
   const router = useRouter()
-  const [showPw, setShowPw] = useState(false)
+  const searchParams = useSearchParams()
+
+  const rawPlan    = searchParams.get('plan') as PlanId | null
+  const intendedPlan: PlanId | null = rawPlan && PAID_PLANS.includes(rawPlan) ? rawPlan : null
+  const planDetails = intendedPlan ? PLANS[intendedPlan] : null
+  const accent      = intendedPlan ? PLAN_ACCENT[intendedPlan] : null
+
+  const [showPw, setShowPw]           = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
-  const [emailSent, setEmailSent] = useState(false)
+  const [emailSent, setEmailSent]     = useState(false)
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<FormData>({ resolver: zodResolver(schema) })
+  const { register, handleSubmit, formState: { errors, isSubmitting } } =
+    useForm<FormData>({ resolver: zodResolver(schema) })
 
   async function onSubmit(data: FormData) {
     setServerError(null)
@@ -80,11 +83,13 @@ export default function SignupPage() {
       password: data.password,
       options: {
         data: {
-          shop_name: data.shop_name,
-          full_name: data.full_name,
+          shop_name:     data.shop_name,
+          full_name:     data.full_name,
+          intended_plan: intendedPlan ?? 'free',
         },
-        // The database trigger (handle_new_user) auto-creates shop + subscription
-        emailRedirectTo: `${location.origin}/auth/callback?next=/dashboard`,
+        emailRedirectTo:
+          `${location.origin}/auth/callback?next=/dashboard` +
+          (intendedPlan ? `&plan=${intendedPlan}` : ''),
       },
     })
 
@@ -93,29 +98,29 @@ export default function SignupPage() {
       return
     }
 
-    // Notify BarberBoost of the new signup (non-blocking)
+    // Non-blocking internal notification
     fetch('/api/signup-notify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email:    data.email,
-        fullName: data.full_name,
-        shopName: data.shop_name,
-      }),
+      body: JSON.stringify({ email: data.email, fullName: data.full_name, shopName: data.shop_name }),
     }).catch(() => {})
 
-    // Supabase may require email confirmation depending on project settings.
-    // If auto-confirm is ON → user is signed in; redirect to dashboard.
-    // If email confirm is ON → show "check your inbox" message.
+    // If Supabase auto-confirm is ON, the user is immediately active — skip the email step
     const { data: { user } } = await supabase.auth.getUser()
     if (user?.confirmed_at) {
-      router.push('/dashboard?welcome=1')
-      router.refresh()
+      if (intendedPlan) {
+        // Go straight to Stripe Checkout
+        window.location.href = `/api/stripe/checkout?plan=${intendedPlan}`
+      } else {
+        router.push('/dashboard?welcome=1')
+        router.refresh()
+      }
     } else {
       setEmailSent(true)
     }
   }
 
+  // ── Email-sent confirmation screen ────────────────────────────
   if (emailSent) {
     return (
       <div className="text-center space-y-5 py-8">
@@ -126,10 +131,18 @@ export default function SignupPage() {
           <h2 className="font-[family-name:var(--font-heading)] text-3xl tracking-widest text-white">
             CHECK YOUR EMAIL
           </h2>
-          <p className="text-zinc-500 text-sm leading-relaxed">
-            We&apos;ve sent a confirmation link to your inbox.
-            Click it to activate your account and start your free trial.
-          </p>
+          {intendedPlan && planDetails ? (
+            <p className="text-zinc-500 text-sm leading-relaxed">
+              We&apos;ve sent a confirmation link to your inbox. Click it to verify your account
+              and continue to your{' '}
+              <span className={accent?.text ?? ''}>{planDetails.name}</span> subscription setup.
+            </p>
+          ) : (
+            <p className="text-zinc-500 text-sm leading-relaxed">
+              We&apos;ve sent a confirmation link to your inbox.
+              Click it to activate your account and start your free plan.
+            </p>
+          )}
         </div>
         <Link
           href="/login"
@@ -141,28 +154,43 @@ export default function SignupPage() {
     )
   }
 
+  // ── Signup form ────────────────────────────────────────────────
   return (
     <div className="space-y-7">
       {/* Header */}
       <div className="space-y-1">
         <h1 className="font-[family-name:var(--font-heading)] text-4xl tracking-widest text-white leading-none">
-          START FOR FREE
+          {intendedPlan ? 'CREATE ACCOUNT' : 'START FOR FREE'}
         </h1>
         <p className="text-zinc-500 text-sm">
-          No credit card required · Cancel any time
+          {intendedPlan ? 'One step away from activating your plan' : 'No credit card required · Cancel any time'}
         </p>
       </div>
 
-      {/* Pro trial callout */}
-      <div className="flex items-start gap-3 bg-[#c9a84c]/8 border border-[#c9a84c]/20 rounded-xl px-4 py-3">
-        <span className="text-lg leading-none">🚀</span>
-        <div>
-          <p className="text-sm font-semibold text-[#c9a84c]">14-Day Pro Trial — Free</p>
-          <p className="text-xs text-zinc-500 mt-0.5">
-            Get full Pro features from day one. No card needed until you decide to stay.
-          </p>
+      {/* Plan / trial callout */}
+      {intendedPlan && planDetails && accent ? (
+        <div className={`flex items-start gap-3 ${accent.bg} border ${accent.border} rounded-xl px-4 py-3`}>
+          <Check className={`w-4 h-4 mt-0.5 shrink-0 ${accent.text}`} />
+          <div>
+            <p className={`text-sm font-semibold ${accent.text}`}>
+              {planDetails.name} Plan · £{planDetails.price}/mo
+            </p>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              Create your account, confirm your email, then complete payment — instant activation.
+            </p>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="flex items-start gap-3 bg-[#c9a84c]/8 border border-[#c9a84c]/20 rounded-xl px-4 py-3">
+          <span className="text-lg leading-none">✂️</span>
+          <div>
+            <p className="text-sm font-semibold text-[#c9a84c]">Free Plan — No Card Needed</p>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              Get started immediately. Upgrade to unlock more bookings, staff, and features.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Server error */}
       {serverError && (
@@ -254,6 +282,8 @@ export default function SignupPage() {
               <Loader2 className="w-4 h-4 animate-spin" />
               Creating your account…
             </>
+          ) : intendedPlan ? (
+            `Create Account & Continue to Payment`
           ) : (
             'Create My Free Account'
           )}
@@ -261,14 +291,9 @@ export default function SignupPage() {
 
         <p className="text-[11px] text-zinc-600 text-center leading-relaxed">
           By creating an account you agree to our{' '}
-          <Link href="/terms" className="text-zinc-500 hover:text-zinc-300 underline underline-offset-2">
-            Terms
-          </Link>{' '}
-          and{' '}
-          <Link href="/privacy" className="text-zinc-500 hover:text-zinc-300 underline underline-offset-2">
-            Privacy Policy
-          </Link>
-          .
+          <Link href="/terms" className="text-zinc-500 hover:text-zinc-300 underline underline-offset-2">Terms</Link>
+          {' '}and{' '}
+          <Link href="/privacy" className="text-zinc-500 hover:text-zinc-300 underline underline-offset-2">Privacy Policy</Link>.
         </p>
       </form>
 
@@ -279,5 +304,13 @@ export default function SignupPage() {
         </Link>
       </p>
     </div>
+  )
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignupForm />
+    </Suspense>
   )
 }

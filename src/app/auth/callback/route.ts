@@ -8,22 +8,17 @@ export const dynamic = 'force-dynamic'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://barberboost.app'
 const SUPPORT = process.env.SUPPORT_EMAIL ?? 'support@barberboost.app'
 
-/**
- * Supabase Auth callback handler.
- * Used by:
- *  - Email confirmation links (new signups)
- *  - Google OAuth (and any other provider)
- *  - Password reset links (type=recovery)
- *
- * Supabase redirects here with a `?code=` PKCE code.
- * This route exchanges the code for a session, sends a welcome email on
- * first confirmation, then redirects onward.
- */
+const PAID_PLANS = ['starter', 'pro', 'empire']
+
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  const type = searchParams.get('type') // 'recovery' for password reset
+  const type = searchParams.get('type')   // 'recovery' for password reset
   const next = searchParams.get('next') ?? '/dashboard'
+
+  // plan param: set by signup page via emailRedirectTo, or absent for free signups
+  const planParam    = searchParams.get('plan') ?? ''
+  const isPaidSignup = PAID_PLANS.includes(planParam)
 
   if (!code) {
     return NextResponse.redirect(new URL('/login?error=missing_code', origin))
@@ -56,14 +51,14 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  // Password reset flow → send to update-password page
+  // Password reset — send straight to update-password page
   if (type === 'recovery') {
     return NextResponse.redirect(new URL('/reset-password/update', origin))
   }
 
-  // Safeguard: ensure shop + subscription rows exist.
+  // ── Safeguard: ensure shop + subscription rows exist ───────────────────────
   // The on_auth_user_created DB trigger normally handles this at signup, but
-  // this fallback catches any case where the trigger was absent or failed.
+  // this fallback catches cases where the trigger was absent or failed.
   if (user) {
     try {
       const { data: existingShop } = await supabase
@@ -89,14 +84,11 @@ export async function GET(request: NextRequest) {
           .single()
 
         if (newShop) {
-          const trialEnd = new Date()
-          trialEnd.setDate(trialEnd.getDate() + 14)
           await supabase.from('subscriptions').insert({
-            shop_id:   newShop.id,
-            owner_id:  user.id,
-            plan:      'pro',
-            status:    'trialing',
-            trial_end: trialEnd.toISOString(),
+            shop_id:  newShop.id,
+            owner_id: user.id,
+            plan:     'free',
+            status:   'active',
           })
         }
       }
@@ -105,8 +97,10 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Send welcome email on first-ever confirmation (not on every re-login)
-  if (user && !user.user_metadata?.welcome_sent) {
+  // ── First-ever confirmation: send emails ───────────────────────────────────
+  const isFirstConfirmation = user && !user.user_metadata?.welcome_sent
+
+  if (isFirstConfirmation) {
     try {
       const { data: shop } = await supabase
         .from('shops')
@@ -144,7 +138,7 @@ export async function GET(request: NextRequest) {
           })
           if (welcomeErr) console.error('[auth/callback] welcome email error:', welcomeErr.message)
 
-          // Internal alert → BarberBoost (confirmed signup)
+          // Internal alert → BarberBoost team
           const alertTmpl = newSignupAlert({ ownerName, shopName, email: user.email, signedUpAt })
           const { error: alertErr } = await resend.emails.send({ from: FROM, to: NOTIFY, ...alertTmpl })
           if (alertErr) console.error('[auth/callback] signup alert error:', alertErr.message)
@@ -153,12 +147,26 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Mark so future logins don't resend
+      // Mark so future logins don't resend welcome
       await supabase.auth.updateUser({ data: { welcome_sent: true } })
     } catch {
       // Non-fatal — never block the auth flow
     }
+
+    // ── First confirmation + paid plan → go to Stripe Checkout ──────────────
+    // Also check user metadata as a fallback (for auto-confirm flow where
+    // emailRedirectTo query params were not available).
+    const resolvedPlan = isPaidSignup
+      ? planParam
+      : (PAID_PLANS.includes(user.user_metadata?.intended_plan as string)
+          ? (user.user_metadata?.intended_plan as string)
+          : '')
+
+    if (resolvedPlan) {
+      return NextResponse.redirect(new URL(`/api/stripe/checkout?plan=${resolvedPlan}`, origin))
+    }
   }
 
+  // ── Default: redirect to intended destination ──────────────────────────────
   return NextResponse.redirect(new URL(next, origin))
 }
