@@ -92,8 +92,7 @@ export async function POST(request: Request) {
     const session = await buildSession(priceId, user.id, user.email, (shop as any)?.id ?? '')
     return NextResponse.redirect(session.url!, 303)
   } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error)
-    console.error('[stripe/checkout POST]', msg)
-    return NextResponse.json({ error: msg }, { status: 500 })
+    console.error('[stripe/checkout POST]', error)
+    return NextResponse.json({ error: 'Failed to create checkout session' }, { status: 500 })
   }
 }
