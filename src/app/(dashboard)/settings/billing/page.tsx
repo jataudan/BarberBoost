@@ -26,10 +26,12 @@ const ERROR_MESSAGES: Record<string, string> = {
 }
 
 export default function BillingPage() {
-  const [sub, setSub]         = useState<Subscription | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [sub, setSub]           = useState<Subscription | null>(null)
+  const [loading, setLoading]   = useState(true)
   const [portalLoading, setPortalLoading] = useState(false)
   const [portalError, setPortalError]     = useState<string | null>(null)
+  const [upgrading, setUpgrading]         = useState<PlanId | null>(null)
+  const [upgradeError, setUpgradeError]   = useState<string | null>(null)
   const [urlError, setUrlError]           = useState<string | null>(null)
   const [wasCanceled, setWasCanceled]     = useState(false)
 
@@ -61,6 +63,25 @@ export default function BillingPage() {
 
   const currentPlanId: PlanId = (sub?.plan as PlanId | undefined) ?? 'free'
   const currentPlan = PLANS[currentPlanId]
+
+  async function handleUpgrade(planId: PlanId) {
+    setUpgrading(planId)
+    setUpgradeError(null)
+    try {
+      const res  = await fetch('/api/stripe/upgrade', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ planId }),
+      })
+      const json = await res.json() as { success?: boolean; error?: string }
+      if (!res.ok) { setUpgradeError(json.error ?? 'Upgrade failed. Please try again.'); return }
+      window.location.reload()
+    } catch {
+      setUpgradeError('Network error. Please try again.')
+    } finally {
+      setUpgrading(null)
+    }
+  }
 
   async function handleManageBilling() {
     setPortalLoading(true)
@@ -139,6 +160,13 @@ export default function BillingPage() {
         )}
       </div>
 
+      {/* Inline upgrade error */}
+      {upgradeError && (
+        <div className="flex items-center gap-2.5 bg-red-500/[0.08] border border-red-500/20 rounded-xl px-4 py-3 text-sm text-red-400">
+          <AlertCircle className="w-4 h-4 shrink-0" />{upgradeError}
+        </div>
+      )}
+
       {/* Canceled / error banners from Stripe redirect */}
       {wasCanceled && (
         <div className="flex items-center gap-2.5 bg-zinc-800/60 border border-zinc-700 rounded-xl px-4 py-3 text-sm text-zinc-400">
@@ -206,11 +234,14 @@ export default function BillingPage() {
 
                 {isUpgrade && (
                   sub?.stripe_customer_id ? (
-                    // Already a paid subscriber — upgrade via Customer Portal
-                    // (Stripe handles proration and plan switching there)
-                    <button type="button" onClick={handleManageBilling} disabled={portalLoading}
-                      className={`w-full flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-colors disabled:opacity-50 ${accent.cta}`}>
-                      {portalLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+                    // Already a paid subscriber — update subscription in-place
+                    <button type="button"
+                      onClick={() => handleUpgrade(planId as PlanId)}
+                      disabled={upgrading === planId}
+                      className={`w-full flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-colors disabled:opacity-60 ${accent.cta}`}>
+                      {upgrading === planId
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        : <Zap className="w-3.5 h-3.5" />}
                       Upgrade to {plan.name}
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
