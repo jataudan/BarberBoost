@@ -2,10 +2,12 @@
 
 import { use, Suspense, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Eye, EyeOff, Loader2, Scissors, AlertCircle, Check } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 import { PLANS, type PlanId } from '@/lib/stripe/plans'
 
 const PAID_PLANS: PlanId[] = ['starter', 'pro', 'empire']
@@ -58,6 +60,7 @@ const INPUT_ERROR  = `${INPUT_BASE} border-red-500/40 focus:border-red-500/60 fo
 type SearchParamsProp = Promise<{ [key: string]: string | string[] | undefined }>
 
 function SignupForm({ searchParams }: { searchParams: SearchParamsProp }) {
+  const router = useRouter()
   const params = use(searchParams)
 
   const rawPlan      = typeof params.plan === 'string' ? params.plan as PlanId : null
@@ -76,27 +79,57 @@ function SignupForm({ searchParams }: { searchParams: SearchParamsProp }) {
 
   async function onSubmit(data: FormData) {
     setServerError(null)
+    const supabase = createClient()
 
-    const res = await fetch('/api/auth/signup', {
+    const { data: signUpData, error } = await supabase.auth.signUp({
+      email:    data.email,
+      password: data.password,
+      options: {
+        data: {
+          shop_name:     data.shop_name,
+          full_name:     data.full_name,
+          intended_plan: intendedPlan ?? 'free',
+        },
+        // Carries plan + billing through the confirmation link (used when
+        // Supabase "Confirm email" is re-enabled in the future).
+        emailRedirectTo:
+          `${location.origin}/auth/callback?next=/dashboard` +
+          (intendedPlan ? `&plan=${intendedPlan}` : '') +
+          (isAnnual     ? `&billing=annual`        : ''),
+      },
+    })
+
+    if (error) {
+      setServerError(error.message)
+      return
+    }
+
+    // Non-blocking: send welcome email + internal alert
+    fetch('/api/auth/signup', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({
         email:    data.email,
-        password: data.password,
-        shopName: data.shop_name,
         fullName: data.full_name,
-        plan:     intendedPlan ?? undefined,
-        billing:  isAnnual ? 'annual' : undefined,
+        shopName: data.shop_name,
+        plan:     intendedPlan ?? null,
       }),
-    })
+    }).catch(() => {})
 
-    const json = await res.json().catch(() => ({}))
-
-    if (!res.ok) {
-      setServerError(json.error ?? 'Something went wrong. Please try again.')
+    // signUpData.session is set when Supabase "Confirm email" is OFF (auto-confirm).
+    // In that case redirect immediately — no email link needed.
+    if (signUpData.session) {
+      if (intendedPlan) {
+        window.location.href =
+          `/api/stripe/checkout?plan=${intendedPlan}` + (isAnnual ? '&billing=annual' : '')
+      } else {
+        router.push('/dashboard?welcome=1')
+        router.refresh()
+      }
       return
     }
 
+    // "Confirm email" is ON — user must click the link in their inbox.
     setEmailSent(true)
   }
 
@@ -164,7 +197,7 @@ function SignupForm({ searchParams }: { searchParams: SearchParamsProp }) {
                 : `£${planDetails.price}/mo`}
             </p>
             <p className="text-xs text-zinc-500 mt-0.5">
-              Create your account, confirm your email, then complete payment — instant activation.
+              Create your account then complete payment — instant activation.
             </p>
           </div>
         </div>
