@@ -44,7 +44,11 @@ export async function GET(request: NextRequest) {
     const isAnnual = request.nextUrl.searchParams.get('billing') === 'annual'
     const plan     = PLANS[planId]
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const priceId  = (isAnnual && (plan as any).annualPriceId) ? (plan as any).annualPriceId : plan.priceId
+    const annualId = (plan as any).annualPriceId as string | undefined
+    // Prefer the billing-matching price; fall back to whichever is configured
+    const priceId  = isAnnual
+      ? (annualId ?? plan.priceId)
+      : (plan.priceId ?? annualId)
     if (!priceId) return NextResponse.redirect(new URL('/settings/billing?error=price_not_configured', request.url))
 
     const { data: shop } = await supabase.from('shops').select('id').eq('owner_id', user.id).single()

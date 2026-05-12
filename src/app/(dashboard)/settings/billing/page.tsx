@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Loader2, Check, Minus, Zap, ArrowRight, CreditCard, AlertCircle } from 'lucide-react'
+import { Loader2, Check, Minus, Zap, ArrowRight, CreditCard, AlertCircle, XCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { PLANS, type PlanId } from '@/lib/stripe/plans'
 import type { Subscription } from '@/types/database'
@@ -20,13 +20,25 @@ function fmtDate(iso: string | null) {
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
+const ERROR_MESSAGES: Record<string, string> = {
+  price_not_configured: 'This plan is not yet configured. Please contact support.',
+  checkout_failed:      'Checkout could not be started. Please try again or contact support.',
+}
+
 export default function BillingPage() {
   const [sub, setSub]         = useState<Subscription | null>(null)
   const [loading, setLoading] = useState(true)
   const [portalLoading, setPortalLoading] = useState(false)
   const [portalError, setPortalError]     = useState<string | null>(null)
+  const [urlError, setUrlError]           = useState<string | null>(null)
+  const [wasCanceled, setWasCanceled]     = useState(false)
 
   useEffect(() => {
+    // Read redirect params from Stripe (client-side only)
+    const params = new URLSearchParams(window.location.search)
+    setUrlError(params.get('error'))
+    setWasCanceled(params.get('canceled') === 'true')
+
     async function load() {
       try {
         const supabase = createClient()
@@ -126,6 +138,20 @@ export default function BillingPage() {
           </button>
         )}
       </div>
+
+      {/* Canceled / error banners from Stripe redirect */}
+      {wasCanceled && (
+        <div className="flex items-center gap-2.5 bg-zinc-800/60 border border-zinc-700 rounded-xl px-4 py-3 text-sm text-zinc-400">
+          <XCircle className="w-4 h-4 shrink-0 text-zinc-500" />
+          Checkout was canceled — no charge was made. Choose a plan below to try again.
+        </div>
+      )}
+      {urlError && (
+        <div className="flex items-center gap-2.5 bg-red-500/[0.08] border border-red-500/20 rounded-xl px-4 py-3 text-sm text-red-400">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          {ERROR_MESSAGES[urlError] ?? 'Something went wrong. Please try again or contact support.'}
+        </div>
+      )}
 
       {/* Plan comparison */}
       <div>
