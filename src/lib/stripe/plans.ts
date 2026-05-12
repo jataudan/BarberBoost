@@ -4,6 +4,7 @@ export const PLANS = {
     name: 'Free',
     price: 0,
     priceId: null,
+    annualPriceId: null,
     description: 'Perfect for getting started',
     colour: '#94a3b8',
     limits: {
@@ -42,6 +43,7 @@ export const PLANS = {
     name: 'Starter',
     price: 19,
     priceId: process.env.STRIPE_STARTER_PRICE_ID,
+    annualPriceId: process.env.STRIPE_STARTER_ANNUAL_PRICE_ID,
     description: 'For the solo barber going professional',
     colour: '#6366f1',
     badge: 'Most Popular',
@@ -82,6 +84,7 @@ export const PLANS = {
     name: 'Pro',
     price: 39,
     priceId: process.env.STRIPE_PRO_PRICE_ID,
+    annualPriceId: process.env.STRIPE_PRO_ANNUAL_PRICE_ID,
     description: 'For busy shops with a growing team',
     colour: '#f59e0b',
     limits: {
@@ -121,6 +124,7 @@ export const PLANS = {
     name: 'Empire',
     price: 79,
     priceId: process.env.STRIPE_EMPIRE_PRICE_ID,
+    annualPriceId: process.env.STRIPE_EMPIRE_ANNUAL_PRICE_ID,
     description: 'For multi-chair empire builders',
     colour: '#10b981',
     limits: {
@@ -156,10 +160,13 @@ export const PLANS = {
 export type PlanId = keyof typeof PLANS;
 export type PlanLimits = typeof PLANS[PlanId]['limits'];
 
-/** Returns the PlanId whose priceId matches the given Stripe price ID, or null. */
+/** Returns the PlanId whose monthly or annual priceId matches the given Stripe price ID, or null. */
 export function getPlanByPriceId(priceId: string): PlanId | null {
   for (const [key, plan] of Object.entries(PLANS)) {
-    if ('priceId' in plan && plan.priceId === priceId) return key as PlanId
+    if (
+      ('priceId'       in plan && plan.priceId       === priceId) ||
+      ('annualPriceId' in plan && plan.annualPriceId === priceId)
+    ) return key as PlanId
   }
   return null
 }

@@ -39,12 +39,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/settings/billing', request.url))
     }
 
-    const plan = PLANS[planId]
-    if (!plan.priceId) return NextResponse.redirect(new URL('/settings/billing', request.url))
+    const isAnnual = request.nextUrl.searchParams.get('billing') === 'annual'
+    const plan     = PLANS[planId]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const priceId  = (isAnnual && (plan as any).annualPriceId) ? (plan as any).annualPriceId : plan.priceId
+    if (!priceId) return NextResponse.redirect(new URL('/settings/billing?error=price_not_configured', request.url))
 
     const { data: shop } = await supabase.from('shops').select('id').eq('owner_id', user.id).single()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const session = await buildSession(plan.priceId, user.id, user.email, (shop as any)?.id ?? '')
+    const session = await buildSession(priceId, user.id, user.email, (shop as any)?.id ?? '')
     return NextResponse.redirect(session.url!, 303)
   } catch (err) {
     console.error('[stripe/checkout GET]', err)

@@ -16,8 +16,10 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get('type')   // 'recovery' for password reset
   const next = searchParams.get('next') ?? '/dashboard'
 
-  // plan param: set by signup page via emailRedirectTo, or absent for free signups
-  const planParam    = searchParams.get('plan') ?? ''
+  // plan + billing params carried through the emailRedirectTo URL
+  const planParam    = searchParams.get('plan')    ?? ''
+  const billingParam = searchParams.get('billing') ?? ''
+  const isAnnual     = billingParam === 'annual'
   const isPaidSignup = PAID_PLANS.includes(planParam)
 
   if (!code) {
@@ -163,7 +165,8 @@ export async function GET(request: NextRequest) {
           : '')
 
     if (resolvedPlan) {
-      return NextResponse.redirect(new URL(`/api/stripe/checkout?plan=${resolvedPlan}`, origin))
+      const checkoutUrl = `/api/stripe/checkout?plan=${resolvedPlan}` + (isAnnual ? '&billing=annual' : '')
+      return NextResponse.redirect(new URL(checkoutUrl, origin))
     }
   }
 

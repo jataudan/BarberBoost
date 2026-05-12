@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { getStripe } from '@/lib/stripe/config'
 import { createServiceClient } from '@/lib/supabase/server'
-import { getPlanByPriceId } from '@/lib/stripe/plans'
+import { getPlanByPriceId, PLANS } from '@/lib/stripe/plans'
+import { subscriptionActivated } from '@/lib/email/templates'
 import type Stripe from 'stripe'
 
 export const dynamic = 'force-dynamic'
@@ -81,21 +82,69 @@ export async function POST(request: Request) {
 
       const { data: shop } = await supabase.from('shops').select('id').eq('owner_id', session.metadata?.userId).single()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if ((shop as any)?.id && plan) {
-        await supabase.from('subscriptions').upsert({
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          shop_id:                 (shop as any).id,
-          owner_id:                session.metadata?.userId,
-          stripe_customer_id:      session.customer as string,
-          stripe_subscription_id:  sub.id,
-          stripe_price_id:         priceId,
+      const shopId = (shop as any)?.id
+
+      if (shopId && plan) {
+        const subData = {
+          owner_id:               session.metadata?.userId,
+          stripe_customer_id:     session.customer as string,
+          stripe_subscription_id: sub.id,
+          stripe_price_id:        priceId,
           plan,
-          status:                  sub.status,
-          current_period_start:    new Date(sub.current_period_start * 1000).toISOString(),
-          current_period_end:      new Date(sub.current_period_end   * 1000).toISOString(),
-          cancel_at_period_end:    sub.cancel_at_period_end,
-          trial_end:               sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
-        })
+          status:                 sub.status,
+          current_period_start:   new Date(sub.current_period_start * 1000).toISOString(),
+          current_period_end:     new Date(sub.current_period_end   * 1000).toISOString(),
+          cancel_at_period_end:   sub.cancel_at_period_end,
+          trial_end:              sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
+          updated_at:             new Date().toISOString(),
+        }
+
+        // Update existing free subscription row rather than inserting a duplicate
+        const { data: existingSub } = await supabase
+          .from('subscriptions')
+          .select('id')
+          .eq('shop_id', shopId)
+          .maybeSingle()
+
+        if (existingSub) {
+          await supabase.from('subscriptions').update(subData).eq('id', existingSub.id)
+        } else {
+          await supabase.from('subscriptions').insert({ shop_id: shopId, ...subData })
+        }
+
+        // Send subscription activated email
+        const customerEmail = (session.customer_email as string | null)
+          ?? await supabase.auth.admin.getUserById(session.metadata?.userId)
+              .then(({ data: u }) => u?.user?.email ?? null)
+              .catch(() => null)
+
+        if (customerEmail) {
+          try {
+            const { Resend: ResendClient } = await import('resend')
+            const resend = new ResendClient(process.env.RESEND_API_KEY)
+            const FROM   = process.env.RESEND_FROM_EMAIL ?? 'BarberBoost <noreply@barberboost.app>'
+            const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://barberboost.app'
+
+            const planLabel  = plan.charAt(0).toUpperCase() + plan.slice(1)
+            // Detect annual billing by checking if the price ID matches an annual price
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const isAnnual   = Object.values(PLANS).some(p => (p as any).annualPriceId === priceId)
+            const periodEnd  = new Date(sub.current_period_end * 1000).toLocaleDateString('en-GB', {
+              day: 'numeric', month: 'long', year: 'numeric',
+            })
+
+            const tmpl = subscriptionActivated({
+              ownerName:    session.customer_details?.name ?? 'there',
+              plan:         planLabel,
+              billing:      isAnnual ? 'Annual' : 'Monthly',
+              periodEnd,
+              dashboardUrl: APP_URL + '/dashboard',
+            })
+            await resend.emails.send({ from: FROM, to: customerEmail, ...tmpl })
+          } catch (emailEx) {
+            console.error('[webhook] activation email error:', emailEx)
+          }
+        }
       }
       break
     }

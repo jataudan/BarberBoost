@@ -550,3 +550,130 @@ export function newSignupAlert(data: NewSignupAlertData): { subject: string; htm
     text,
   }
 }
+
+// ── 8. Account confirmation email ─────────────────────────────────────────
+
+export interface ConfirmationEmailData {
+  fullName:         string
+  email:            string
+  plan:             string | null  // null = free
+  confirmationLink: string
+}
+
+export function confirmationEmail(data: ConfirmationEmailData) {
+  const safeLink = esc(data.confirmationLink)
+  const planName = data.plan ? data.plan.charAt(0).toUpperCase() + data.plan.slice(1) : null
+
+  const planCallout = planName
+    ? `<div style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);border-radius:10px;padding:14px 18px;margin:20px 0;">
+        <p style="margin:0;font-size:13px;color:${GOLD};font-weight:700;">After confirming you&apos;ll be taken to complete your ${planName} plan payment.</p>
+      </div>`
+    : `<p style="font-size:14px;color:${MUTED};line-height:1.6;margin:0 0 20px;">Once confirmed, you&apos;ll land straight in your free dashboard — no payment needed.</p>`
+
+  const ctaText = planName ? `CONFIRM & PROCEED TO PAYMENT` : `CONFIRM MY ACCOUNT`
+
+  const content = `
+    <div style="text-align:center;margin-bottom:28px;">
+      <div style="display:inline-block;width:52px;height:52px;background:rgba(201,168,76,0.12);border-radius:50%;border:1px solid rgba(201,168,76,0.25);line-height:52px;font-size:26px;margin-bottom:12px;">✉️</div>
+      <h1 style="margin:0;font-size:22px;font-weight:900;color:${TEXT};letter-spacing:0.06em;">CONFIRM YOUR EMAIL</h1>
+      <p style="margin:10px 0 0;font-size:14px;color:${MUTED};">Hi ${esc(data.fullName)} — one click and you&apos;re in.</p>
+    </div>
+
+    <p style="font-size:14px;color:${TEXT};line-height:1.7;margin-bottom:16px;">
+      Click the button below to verify your email address and activate your BarberBoost account.
+    </p>
+
+    ${planCallout}
+
+    <div style="text-align:center;">
+      ${ctaButton(ctaText, data.confirmationLink)}
+    </div>
+
+    <p style="margin-top:28px;font-size:12px;color:${MUTED};line-height:1.6;">
+      This link expires in 24 hours. If you didn&apos;t sign up for BarberBoost, you can safely ignore this email.
+    </p>
+    <p style="font-size:12px;color:${MUTED};line-height:1.6;word-break:break-all;">
+      Or copy this link into your browser: <a href="${safeLink}" style="color:${GOLD};text-decoration:none;">${safeLink}</a>
+    </p>
+  `
+
+  const subject = planName
+    ? `Confirm your email — then activate your ${planName} plan`
+    : `Confirm your BarberBoost account`
+
+  const text = [
+    `CONFIRM YOUR BARBERBOOST ACCOUNT`,
+    ``,
+    `Hi ${data.fullName},`,
+    ``,
+    planName
+      ? `Click the link below to confirm your email and proceed to your ${planName} plan payment:`
+      : `Click the link below to confirm your email and access your free dashboard:`,
+    ``,
+    data.confirmationLink,
+    ``,
+    `This link expires in 24 hours.`,
+    ``,
+    `If you didn't sign up for BarberBoost, ignore this email.`,
+  ].join('\n')
+
+  return { subject, html: emailShell(content, 'BarberBoost'), text }
+}
+
+// ── 9. Subscription activated email ──────────────────────────────────────
+
+export interface SubscriptionActivatedData {
+  ownerName:    string
+  plan:         string   // e.g. 'Pro'
+  billing:      string   // e.g. 'Monthly' | 'Annual'
+  periodEnd:    string   // e.g. '12 June 2027'
+  dashboardUrl: string
+}
+
+export function subscriptionActivated(data: SubscriptionActivatedData) {
+  const content = `
+    <div style="text-align:center;margin-bottom:28px;">
+      <div style="display:inline-block;width:52px;height:52px;background:rgba(201,168,76,0.12);border-radius:50%;border:1px solid rgba(201,168,76,0.25);line-height:52px;font-size:26px;margin-bottom:12px;">🎉</div>
+      <h1 style="margin:0;font-size:24px;font-weight:900;color:${TEXT};letter-spacing:0.06em;">${esc(data.plan).toUpperCase()} PLAN ACTIVE</h1>
+      <p style="margin:10px 0 0;font-size:14px;color:${MUTED};">Hi ${esc(data.ownerName)} — your subscription is live.</p>
+    </div>
+
+    <p style="font-size:14px;color:${TEXT};line-height:1.7;margin-bottom:20px;">
+      Your <strong>${esc(data.plan)}</strong> subscription is now active. All features are unlocked and ready to use in your dashboard.
+    </p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+      ${detailRow('Plan', esc(data.plan))}
+      ${detailRow('Billing', esc(data.billing))}
+      ${detailRow('Next renewal', esc(data.periodEnd))}
+    </table>
+
+    <p style="font-size:13px;color:${MUTED};line-height:1.6;margin-bottom:0;">
+      Manage your subscription at any time from <a href="${esc(data.dashboardUrl)}/settings/billing" style="color:${GOLD};text-decoration:none;">Settings → Billing</a>.
+    </p>
+
+    <div style="text-align:center;">
+      ${ctaButton('GO TO DASHBOARD', data.dashboardUrl)}
+    </div>
+  `
+
+  const text = [
+    `${data.plan.toUpperCase()} PLAN ACTIVE — BARBERBOOST`,
+    ``,
+    `Hi ${data.ownerName},`,
+    ``,
+    `Your ${data.plan} subscription is now active. All features are unlocked.`,
+    ``,
+    `Plan:         ${data.plan}`,
+    `Billing:      ${data.billing}`,
+    `Next renewal: ${data.periodEnd}`,
+    ``,
+    `Dashboard: ${data.dashboardUrl}`,
+  ].join('\n')
+
+  return {
+    subject: `Your ${data.plan} plan is now active`,
+    html:    emailShell(content, 'BarberBoost'),
+    text,
+  }
+}

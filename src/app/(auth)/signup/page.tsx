@@ -2,12 +2,10 @@
 
 import { use, Suspense, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Eye, EyeOff, Loader2, Scissors, AlertCircle, Check } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { PLANS, type PlanId } from '@/lib/stripe/plans'
 
 const PAID_PLANS: PlanId[] = ['starter', 'pro', 'empire']
@@ -60,13 +58,13 @@ const INPUT_ERROR  = `${INPUT_BASE} border-red-500/40 focus:border-red-500/60 fo
 type SearchParamsProp = Promise<{ [key: string]: string | string[] | undefined }>
 
 function SignupForm({ searchParams }: { searchParams: SearchParamsProp }) {
-  const router = useRouter()
   const params = use(searchParams)
 
-  const rawPlan = typeof params.plan === 'string' ? params.plan as PlanId : null
-  const intendedPlan: PlanId | null = rawPlan && PAID_PLANS.includes(rawPlan) ? rawPlan : null
-  const planDetails = intendedPlan ? PLANS[intendedPlan] : null
-  const accent      = intendedPlan ? PLAN_ACCENT[intendedPlan] : null
+  const rawPlan      = typeof params.plan === 'string' ? params.plan as PlanId : null
+  const intendedPlan = rawPlan && PAID_PLANS.includes(rawPlan) ? rawPlan : null
+  const isAnnual     = params.billing === 'annual'
+  const planDetails  = intendedPlan ? PLANS[intendedPlan] : null
+  const accent       = intendedPlan ? PLAN_ACCENT[intendedPlan] : null
 
   const [showPw, setShowPw]           = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
@@ -78,48 +76,28 @@ function SignupForm({ searchParams }: { searchParams: SearchParamsProp }) {
 
   async function onSubmit(data: FormData) {
     setServerError(null)
-    const supabase = createClient()
 
-    const { error } = await supabase.auth.signUp({
-      email: data.email,
-      password: data.password,
-      options: {
-        data: {
-          shop_name:     data.shop_name,
-          full_name:     data.full_name,
-          intended_plan: intendedPlan ?? 'free',
-        },
-        emailRedirectTo:
-          `${location.origin}/auth/callback?next=/dashboard` +
-          (intendedPlan ? `&plan=${intendedPlan}` : ''),
-      },
+    const res = await fetch('/api/auth/signup', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        email:    data.email,
+        password: data.password,
+        shopName: data.shop_name,
+        fullName: data.full_name,
+        plan:     intendedPlan ?? undefined,
+        billing:  isAnnual ? 'annual' : undefined,
+      }),
     })
 
-    if (error) {
-      setServerError(error.message)
+    const json = await res.json().catch(() => ({}))
+
+    if (!res.ok) {
+      setServerError(json.error ?? 'Something went wrong. Please try again.')
       return
     }
 
-    // Non-blocking internal notification
-    fetch('/api/signup-notify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: data.email, fullName: data.full_name, shopName: data.shop_name }),
-    }).catch(() => {})
-
-    // If Supabase auto-confirm is ON, the user is immediately active — skip the email step
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user?.confirmed_at) {
-      if (intendedPlan) {
-        // Go straight to Stripe Checkout
-        window.location.href = `/api/stripe/checkout?plan=${intendedPlan}`
-      } else {
-        router.push('/dashboard?welcome=1')
-        router.refresh()
-      }
-    } else {
-      setEmailSent(true)
-    }
+    setEmailSent(true)
   }
 
   // ── Email-sent confirmation screen ────────────────────────────
@@ -137,12 +115,13 @@ function SignupForm({ searchParams }: { searchParams: SearchParamsProp }) {
             <p className="text-zinc-500 text-sm leading-relaxed">
               We&apos;ve sent a confirmation link to your inbox. Click it to verify your account
               and continue to your{' '}
-              <span className={accent?.text ?? ''}>{planDetails.name}</span> subscription setup.
+              <span className={accent?.text ?? ''}>{planDetails.name}</span>{' '}
+              {isAnnual ? 'annual ' : ''}subscription setup.
             </p>
           ) : (
             <p className="text-zinc-500 text-sm leading-relaxed">
               We&apos;ve sent a confirmation link to your inbox.
-              Click it to activate your account and start your free plan.
+              Click it to activate your account and access your free plan.
             </p>
           )}
         </div>
@@ -157,6 +136,10 @@ function SignupForm({ searchParams }: { searchParams: SearchParamsProp }) {
   }
 
   // ── Signup form ────────────────────────────────────────────────
+  const annualMonthly = intendedPlan && planDetails && isAnnual
+    ? Math.floor((planDetails.price * 10) / 12 * 100) / 100
+    : null
+
   return (
     <div className="space-y-7">
       {/* Header */}
@@ -175,7 +158,10 @@ function SignupForm({ searchParams }: { searchParams: SearchParamsProp }) {
           <Check className={`w-4 h-4 mt-0.5 shrink-0 ${accent.text}`} />
           <div>
             <p className={`text-sm font-semibold ${accent.text}`}>
-              {planDetails.name} Plan · £{planDetails.price}/mo
+              {planDetails.name} Plan ·{' '}
+              {isAnnual && annualMonthly
+                ? `£${annualMonthly % 1 === 0 ? annualMonthly : annualMonthly.toFixed(2)}/mo (billed annually — 2 months free)`
+                : `£${planDetails.price}/mo`}
             </p>
             <p className="text-xs text-zinc-500 mt-0.5">
               Create your account, confirm your email, then complete payment — instant activation.
@@ -285,7 +271,7 @@ function SignupForm({ searchParams }: { searchParams: SearchParamsProp }) {
               Creating your account…
             </>
           ) : intendedPlan ? (
-            `Create Account & Continue to Payment`
+            'Create Account & Continue to Payment'
           ) : (
             'Create My Free Account'
           )}
