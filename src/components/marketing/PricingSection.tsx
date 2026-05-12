@@ -56,7 +56,7 @@ export function PricingSection() {
       </div>
 
       {/* Plan cards — horizontal swipe on mobile, 2-col sm, 4-col xl */}
-      <div className="flex sm:grid sm:grid-cols-2 xl:grid-cols-4 gap-5 overflow-x-auto snap-x snap-mandatory pb-2 sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0">
+      <div className="flex sm:grid sm:grid-cols-2 xl:grid-cols-4 gap-5 overflow-x-auto snap-x snap-mandatory pt-5 pb-2 sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0">
         {PLAN_ORDER.map((planId) => {
           const plan = PLANS[planId]
           const styles = PLAN_STYLES[planId]
