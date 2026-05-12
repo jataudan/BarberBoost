@@ -37,8 +37,9 @@ export default function BillingPage() {
           .select('*')
           .eq('owner_id', user.id)
           .in('status', ['active', 'trialing', 'past_due'])
-          .single()
-        if (data) setSub(data as Subscription)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+        if (data?.[0]) setSub(data[0] as Subscription)
       } finally {
         setLoading(false)
       }
@@ -177,9 +178,9 @@ export default function BillingPage() {
                   ))}
                 </ul>
 
-                {isUpgrade && plan.priceId && (
+                {isUpgrade && (
                   <form action="/api/stripe/checkout" method="POST">
-                    <input type="hidden" name="priceId" value={plan.priceId} />
+                    <input type="hidden" name="planId" value={planId} />
                     <button type="submit"
                       className={`w-full flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-colors ${accent.cta}`}>
                       <Zap className="w-3.5 h-3.5" /> Upgrade to {plan.name}

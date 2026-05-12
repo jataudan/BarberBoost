@@ -34,9 +34,10 @@ export function useSubscription(shopId: string | undefined) {
       .select('*')
       .eq('shop_id', shopId)
       .in('status', ['active', 'trialing'])
-      .single()
+      .order('updated_at', { ascending: false })
+      .limit(1)
       .then(({ data }) => {
-        setSubscription(data)
+        setSubscription(data?.[0] ?? null)
         setLoading(false)
       })
   }, [shopId])

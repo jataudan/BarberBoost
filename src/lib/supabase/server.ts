@@ -56,6 +56,8 @@ export const getShop = cache(async (): Promise<Shop | null> => {
 
 /**
  * Returns the active/trialing subscription for the current user, or null.
+ * Uses ordered limit(1) instead of .single() so duplicate rows (from a
+ * historical upsert bug) never cause a thrown error.
  */
 export const getSubscription = cache(async (): Promise<Subscription | null> => {
   const supabase = await createClient()
@@ -66,8 +68,9 @@ export const getSubscription = cache(async (): Promise<Subscription | null> => {
     .select('*')
     .eq('owner_id', user.id)
     .in('status', ['active', 'trialing'])
-    .single()
-  return data ?? null
+    .order('updated_at', { ascending: false })
+    .limit(1)
+  return (data?.[0] as Subscription | undefined) ?? null
 })
 
 export async function createServiceClient() {

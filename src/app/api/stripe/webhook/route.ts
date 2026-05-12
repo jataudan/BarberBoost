@@ -99,12 +99,15 @@ export async function POST(request: Request) {
           updated_at:             new Date().toISOString(),
         }
 
-        // Update existing free subscription row rather than inserting a duplicate
-        const { data: existingSub } = await supabase
+        // Update the most-recent subscription row (ordered to survive any
+        // historical duplicate rows); insert only if none found.
+        const { data: existingSubs } = await supabase
           .from('subscriptions')
           .select('id')
           .eq('shop_id', shopId)
-          .maybeSingle()
+          .order('updated_at', { ascending: false })
+          .limit(1)
+        const existingSub = existingSubs?.[0] ?? null
 
         if (existingSub) {
           await supabase.from('subscriptions').update(subData).eq('id', existingSub.id)

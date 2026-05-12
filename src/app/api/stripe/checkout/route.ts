@@ -5,9 +5,11 @@ import { PLANS, type PlanId } from '@/lib/stripe/plans'
 
 const PAID_PLAN_IDS: PlanId[] = ['starter', 'pro', 'empire']
 
-const VALID_PRICE_IDS = new Set(
-  Object.values(PLANS).map(p => p.priceId).filter(Boolean) as string[]
-)
+const VALID_PRICE_IDS = new Set([
+  ...Object.values(PLANS).map(p => p.priceId),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ...Object.values(PLANS).map(p => (p as any).annualPriceId),
+].filter(Boolean) as string[])
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://barberboost.app'
 
@@ -57,6 +59,8 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/stripe/checkout (form submission from billing settings)
+ * Accepts either planId (preferred) or priceId (legacy).
+ * planId picks the best available price: monthly if configured, otherwise annual.
  */
 export async function POST(request: Request) {
   try {
@@ -64,10 +68,20 @@ export async function POST(request: Request) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const body    = await request.formData()
-    const priceId = body.get('priceId') as string
-    if (!priceId) return NextResponse.json({ error: 'Price ID required' }, { status: 400 })
-    if (!VALID_PRICE_IDS.has(priceId)) return NextResponse.json({ error: 'Invalid price ID' }, { status: 400 })
+    const body   = await request.formData()
+    let priceId: string | null = null
+
+    const planIdParam = body.get('planId') as string | null
+    if (planIdParam && PAID_PLAN_IDS.includes(planIdParam as PlanId)) {
+      const plan = PLANS[planIdParam as PlanId]
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      priceId = plan.priceId ?? (plan as any).annualPriceId ?? null
+    } else {
+      const rawPriceId = body.get('priceId') as string | null
+      if (rawPriceId && VALID_PRICE_IDS.has(rawPriceId)) priceId = rawPriceId
+    }
+
+    if (!priceId) return NextResponse.json({ error: 'Plan not configured — please contact support.' }, { status: 400 })
 
     const { data: shop } = await supabase.from('shops').select('id').eq('owner_id', user.id).single()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
