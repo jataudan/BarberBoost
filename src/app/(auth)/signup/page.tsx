@@ -1,8 +1,8 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { use, Suspense, useState } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -57,11 +57,13 @@ const INPUT_BASE =
 const INPUT_NORMAL = `${INPUT_BASE} border-[#2a2a2a] focus:border-[#c9a84c]/60 focus:ring-1 focus:ring-[#c9a84c]/20`
 const INPUT_ERROR  = `${INPUT_BASE} border-red-500/40 focus:border-red-500/60 focus:ring-1 focus:ring-red-500/20`
 
-function SignupForm() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
+type SearchParamsProp = Promise<{ [key: string]: string | string[] | undefined }>
 
-  const rawPlan    = searchParams.get('plan') as PlanId | null
+function SignupForm({ searchParams }: { searchParams: SearchParamsProp }) {
+  const router = useRouter()
+  const params = use(searchParams)
+
+  const rawPlan = typeof params.plan === 'string' ? params.plan as PlanId : null
   const intendedPlan: PlanId | null = rawPlan && PAID_PLANS.includes(rawPlan) ? rawPlan : null
   const planDetails = intendedPlan ? PLANS[intendedPlan] : null
   const accent      = intendedPlan ? PLAN_ACCENT[intendedPlan] : null
@@ -307,10 +309,14 @@ function SignupForm() {
   )
 }
 
-export default function SignupPage() {
+export default function SignupPage({
+  searchParams,
+}: {
+  searchParams: SearchParamsProp
+}) {
   return (
     <Suspense fallback={null}>
-      <SignupForm />
+      <SignupForm searchParams={searchParams} />
     </Suspense>
   )
 }
