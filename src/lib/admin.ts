@@ -1,10 +1,25 @@
 import { getUser } from '@/lib/supabase/server'
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? '')
-  .split(',').map(e => e.trim()).filter(Boolean)
-
 export async function isAdmin(): Promise<boolean> {
   const user = await getUser()
   if (!user?.email) return false
-  return ADMIN_EMAILS.includes(user.email)
+  const adminEmails = (process.env.ADMIN_EMAILS ?? '')
+    .split(',')
+    .map(e => e.trim().toLowerCase())
+    .filter(Boolean)
+  return adminEmails.includes(user.email.toLowerCase())
+}
+
+export async function getAdminDebug() {
+  const user = await getUser()
+  const adminEmails = (process.env.ADMIN_EMAILS ?? '')
+    .split(',')
+    .map(e => e.trim().toLowerCase())
+    .filter(Boolean)
+  return {
+    userEmail:   user?.email ?? null,
+    adminEmails,
+    envRaw:      process.env.ADMIN_EMAILS ?? '(not set)',
+    isAdmin:     user?.email ? adminEmails.includes(user.email.toLowerCase()) : false,
+  }
 }
