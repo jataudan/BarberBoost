@@ -62,9 +62,10 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST /api/stripe/checkout (form submission from billing settings)
- * Accepts either planId (preferred) or priceId (legacy).
- * planId picks the best available price: monthly if configured, otherwise annual.
+ * POST /api/stripe/checkout
+ * Body (JSON): { planId: 'starter' | 'pro' | 'empire' }
+ * Returns JSON { url } — client navigates to the Stripe Checkout URL.
+ * Creates the shop row if the DB trigger hasn't fired yet.
  */
 export async function POST(request: Request) {
   try {
@@ -72,27 +73,65 @@ export async function POST(request: Request) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const body   = await request.formData()
-    let priceId: string | null = null
+    // Accept JSON body (new) or formData (legacy)
+    const contentType = request.headers.get('content-type') ?? ''
+    let planIdParam: string | null = null
+    let rawPriceId:  string | null = null
 
-    const planIdParam = body.get('planId') as string | null
+    if (contentType.includes('application/json')) {
+      const json = await request.json() as { planId?: string; priceId?: string }
+      planIdParam = json.planId ?? null
+      rawPriceId  = json.priceId ?? null
+    } else {
+      const body  = await request.formData()
+      planIdParam = body.get('planId') as string | null
+      rawPriceId  = body.get('priceId') as string | null
+    }
+
+    let priceId: string | null = null
     if (planIdParam && PAID_PLAN_IDS.includes(planIdParam as PlanId)) {
       const plan = PLANS[planIdParam as PlanId]
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       priceId = plan.priceId ?? (plan as any).annualPriceId ?? null
-    } else {
-      const rawPriceId = body.get('priceId') as string | null
-      if (rawPriceId && VALID_PRICE_IDS.has(rawPriceId)) priceId = rawPriceId
+    } else if (rawPriceId && VALID_PRICE_IDS.has(rawPriceId)) {
+      priceId = rawPriceId
     }
 
-    if (!priceId) return NextResponse.json({ error: 'Plan not configured — please contact support.' }, { status: 400 })
+    if (!priceId) return NextResponse.json({ error: 'Plan not configured — contact support.' }, { status: 400 })
 
-    const { data: shop } = await supabase.from('shops').select('id').eq('owner_id', user.id).single()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const session = await buildSession(priceId, user.id, user.email, (shop as any)?.id ?? '')
+    // Ensure the shop row exists (safeguard if DB trigger hasn't fired)
+    let shopId = ''
+    const { data: existingShop } = await supabase.from('shops').select('id').eq('owner_id', user.id).maybeSingle()
+    if (existingShop) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      shopId = (existingShop as any).id
+    } else {
+      const rawName = 'My Barbershop'
+      const slug    = 'shop-' + user.id.slice(0, 8)
+      const { data: newShop } = await supabase
+        .from('shops')
+        .insert({ owner_id: user.id, name: rawName, slug, email: user.email ?? null })
+        .select('id')
+        .single()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      shopId = (newShop as any)?.id ?? ''
+      if (shopId) {
+        await supabase.from('subscriptions').insert({
+          shop_id: shopId, owner_id: user.id, plan: 'free', status: 'active',
+        })
+      }
+    }
+
+    const session = await buildSession(priceId, user.id, user.email, shopId)
+
+    // Return JSON so the client can navigate; also handle legacy form submissions
+    if (contentType.includes('application/json')) {
+      return NextResponse.json({ url: session.url })
+    }
     return NextResponse.redirect(session.url!, 303)
   } catch (error) {
     console.error('[stripe/checkout POST]', error)
-    return NextResponse.json({ error: 'Failed to create checkout session' }, { status: 500 })
+    const msg = error instanceof Error ? error.message : 'Failed to create checkout session'
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

@@ -1,8 +1,13 @@
 # BarberBoost UAT Test Cases & Scripts
-**Version:** 1.0  
-**Date:** 10 May 2026  
+**Version:** 2.0  
+**Date:** 13 May 2026  
 **Environment:** https://barberboost.app  
 **Prepared by:** QA / Development Team
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.0 | 10 May 2026 | Initial UAT — 100 TCs, commit `fa5e12b` |
+| 2.0 | 13 May 2026 | +10 TCs: billing upgrade flows, Stripe auth guards, code review checks; commit `66b4219` |
 
 ---
 
@@ -156,6 +161,36 @@
 **Steps:** `GET` each of `/api/bookings`, `/api/clients`, `/api/campaigns`, `/api/inventory`, `/api/staff` without auth  
 **Expected:** 401 JSON response  
 **Automated result:** PASS — all five returned 401
+
+---
+
+### TC-014f · Stripe checkout API returns 401 without auth 🤖
+**Objective:** Confirm `/api/stripe/checkout` is protected by auth middleware.  
+**Steps:**
+1. `POST https://barberboost.app/api/stripe/checkout` with no session cookie and body `{"planId":"starter"}`
+
+**Expected:** `{"error":"Unauthorized"}` with HTTP 401  
+**Automated result:** PASS (401)
+
+---
+
+### TC-014g · Stripe upgrade API returns 401 without auth 🤖
+**Objective:** Confirm `/api/stripe/upgrade` is protected by auth middleware.  
+**Steps:**
+1. `POST https://barberboost.app/api/stripe/upgrade` with no session cookie and body `{"planId":"pro"}`
+
+**Expected:** `{"error":"Unauthorized"}` with HTTP 401  
+**Automated result:** PASS (401)
+
+---
+
+### TC-014h · Stripe portal API returns 401 without auth 🤖
+**Objective:** Confirm `/api/stripe/portal` is protected by auth middleware.  
+**Steps:**
+1. `POST https://barberboost.app/api/stripe/portal` with no session cookie
+
+**Expected:** `{"error":"Unauthorized"}` with HTTP 401  
+**Automated result:** PASS (401)
 
 ---
 
@@ -665,10 +700,85 @@
 
 ---
 
+### TC-078b · In-place plan upgrade (Starter → Pro) 👤
+**Objective:** Verify an existing paid subscriber can upgrade to a higher plan without going through Stripe Checkout again.  
+**Pre-condition:** Account is on Starter plan with an active Stripe subscription.  
+**Steps:**
+1. Navigate to `/settings/billing`
+2. Click "Upgrade to Pro" on the Pro plan card
+3. Observe the button spinner
+4. Wait for page reload
+
+**Expected:**
+- Spinner appears immediately on click (no navigation away)
+- Page reloads within ~5 seconds
+- Plan badge now shows "Pro"
+- Pro plan card shows "Current plan" indicator
+- No Stripe Checkout page was visited (upgrade is in-place)
+- A prorated invoice for the price difference is created immediately in Stripe
+
+**Edge cases:**
+- If Stripe call fails → inline red error banner appears below the plan grid; button re-enables
+- Network disconnect → "Network error. Please try again." banner shown
+
+---
+
+### TC-078c · Upgrade error shown inline 👤
+**Objective:** Verify upgrade failures surface an error banner rather than a broken page.  
+**Steps:**
+1. With a Free-plan account (no Stripe customer ID), call `POST /api/stripe/upgrade` directly with `{"planId":"pro"}`
+2. Alternatively, disconnect from network and click Upgrade
+
+**Expected:** Red error banner "No active subscription found" (or network error) appears below plan cards; no page navigation; button re-enables  
+**Automated check:** `POST /api/stripe/upgrade` with Free-plan auth → 404 "No active subscription found"
+
+---
+
 ### TC-079 · Invalid price ID rejected 🤖
 **Code review:** `VALID_PRICE_IDS.has(priceId)` check in `/api/stripe/checkout`  
 **Steps:** `POST /api/stripe/checkout` with `priceId=price_fake123` and valid auth  
 **Expected:** 400 "Invalid price ID"
+
+---
+
+### TC-079b · Billing page uses JS fetch — not HTML form 🤖
+**Objective:** Confirm upgrade buttons use `fetch()` so errors display inline rather than navigating away to raw JSON.  
+**Code review:** `billing/page.tsx` — `handleCheckout()` calls `fetch('/api/stripe/checkout', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({planId})})`. No `<form>` element present.  
+**Expected:** No `<form action=...>` on the billing page; `handleCheckout` and `handleUpgrade` functions verified in source  
+**Automated result:** PASS (code review)
+
+---
+
+### TC-079c · Checkout POST returns JSON URL for application/json callers 🤖
+**Objective:** Confirm the checkout API returns `{"url":"..."}` instead of a raw redirect when called with `Content-Type: application/json`.  
+**Code review:** `src/app/api/stripe/checkout/route.ts` — when `contentType.includes('application/json')`, handler returns `NextResponse.json({ url: session.url })`.  
+**Steps:** `POST /api/stripe/checkout` with `Content-Type: application/json` and valid auth + `{"planId":"starter"}`  
+**Expected:** 200 JSON response containing `{ "url": "https://checkout.stripe.com/..." }`; not a 303 redirect  
+**Automated result:** PASS (code review)
+
+---
+
+### TC-079d · Upgrade uses always_invoice proration 🤖
+**Objective:** Confirm plan upgrades charge the prorated difference immediately rather than deferring to next invoice.  
+**Code review:** `src/app/api/stripe/upgrade/route.ts` — `stripe.subscriptions.update(...)` called with `proration_behavior: 'always_invoice'`.  
+**Expected:** `always_invoice` present in upgrade handler; no `create_prorations` or `none`  
+**Automated result:** PASS (code review)
+
+---
+
+### TC-079e · Portal route returns JSON not redirect 🤖
+**Objective:** Confirm the portal API returns `{"url":"..."}` so the client-side fetch can extract and navigate without opaque redirect issues.  
+**Code review:** `src/app/api/stripe/portal/route.ts` — returns `NextResponse.json({ url: portalSession.url })` (not `NextResponse.redirect`).  
+**Expected:** No `NextResponse.redirect` in portal route; `NextResponse.json({ url })` confirmed  
+**Automated result:** PASS (code review)
+
+---
+
+### TC-079f · Subscription queries use .order().limit(1) not .single() 🤖
+**Objective:** Confirm all subscription queries tolerate historical duplicate rows (legacy upsert artefacts) without throwing PGRST116.  
+**Code review:** All Supabase subscription selects across billing page, checkout, upgrade, portal, and webhook handler use `.order('updated_at', {ascending: false}).limit(1)` instead of `.single()`.  
+**Expected:** No `.single()` on subscriptions table; `.limit(1)` confirmed in all relevant files  
+**Automated result:** PASS (code review)
 
 ---
 
@@ -827,4 +937,4 @@
 
 ---
 
-*End of Test Cases — 100 test cases across 18 modules*
+*End of Test Cases — 110 test cases across 18 modules (v2.0, 13 May 2026)*

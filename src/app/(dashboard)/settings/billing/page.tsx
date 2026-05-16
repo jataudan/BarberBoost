@@ -32,6 +32,8 @@ export default function BillingPage() {
   const [portalError, setPortalError]     = useState<string | null>(null)
   const [upgrading, setUpgrading]         = useState<PlanId | null>(null)
   const [upgradeError, setUpgradeError]   = useState<string | null>(null)
+  const [checkingOut, setCheckingOut]     = useState<PlanId | null>(null)
+  const [checkoutError, setCheckoutError] = useState<string | null>(null)
   const [urlError, setUrlError]           = useState<string | null>(null)
   const [wasCanceled, setWasCanceled]     = useState(false)
 
@@ -80,6 +82,25 @@ export default function BillingPage() {
       setUpgradeError('Network error. Please try again.')
     } finally {
       setUpgrading(null)
+    }
+  }
+
+  async function handleCheckout(planId: PlanId) {
+    setCheckingOut(planId)
+    setCheckoutError(null)
+    try {
+      const res  = await fetch('/api/stripe/checkout', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ planId }),
+      })
+      const json = await res.json() as { url?: string; error?: string }
+      if (!res.ok || !json.url) { setCheckoutError(json.error ?? 'Checkout failed. Please try again.'); return }
+      window.location.href = json.url
+    } catch {
+      setCheckoutError('Network error. Please try again.')
+    } finally {
+      setCheckingOut(null)
     }
   }
 
@@ -160,10 +181,15 @@ export default function BillingPage() {
         )}
       </div>
 
-      {/* Inline upgrade error */}
+      {/* Inline upgrade / checkout errors */}
       {upgradeError && (
         <div className="flex items-center gap-2.5 bg-red-500/[0.08] border border-red-500/20 rounded-xl px-4 py-3 text-sm text-red-400">
           <AlertCircle className="w-4 h-4 shrink-0" />{upgradeError}
+        </div>
+      )}
+      {checkoutError && (
+        <div className="flex items-center gap-2.5 bg-red-500/[0.08] border border-red-500/20 rounded-xl px-4 py-3 text-sm text-red-400">
+          <AlertCircle className="w-4 h-4 shrink-0" />{checkoutError}
         </div>
       )}
 
@@ -247,14 +273,16 @@ export default function BillingPage() {
                     </button>
                   ) : (
                     // Free plan — create new Stripe Checkout session
-                    <form action="/api/stripe/checkout" method="POST">
-                      <input type="hidden" name="planId" value={planId} />
-                      <button type="submit"
-                        className={`w-full flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-colors ${accent.cta}`}>
-                        <Zap className="w-3.5 h-3.5" /> Upgrade to {plan.name}
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
-                    </form>
+                    <button type="button"
+                      onClick={() => handleCheckout(planId as PlanId)}
+                      disabled={checkingOut === planId}
+                      className={`w-full flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-colors disabled:opacity-60 ${accent.cta}`}>
+                      {checkingOut === planId
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        : <Zap className="w-3.5 h-3.5" />}
+                      Upgrade to {plan.name}
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
                   )
                 )}
                 {isCurrent && (
