@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { getUser, getShop, createClient } from '@/lib/supabase/server'
 
 export async function GET(request: Request) {
-  const { user } = await getUser()
+  const user = await getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const shop = await getShop()
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const { user } = await getUser()
+  const user = await getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const shop = await getShop()
