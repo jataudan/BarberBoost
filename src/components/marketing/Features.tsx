@@ -71,21 +71,8 @@ const FEATURES: Feature[] = [
 
 export function Features() {
   return (
-    <section className="py-24 px-4 sm:px-6 bg-[#0a0a0a]">
+    <section className="pt-8 pb-24 px-4 sm:px-6 bg-[#0a0a0a]">
       <div className="max-w-7xl mx-auto">
-
-        {/* Section header */}
-        <div className="text-center mb-16 space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#c9a84c]">
-            Platform Features
-          </p>
-          <h2 className="font-[family-name:var(--font-heading)] text-[clamp(2.5rem,6vw,4.5rem)] leading-none tracking-widest text-white">
-            EVERYTHING YOUR SHOP NEEDS
-          </h2>
-          <p className="text-zinc-500 text-lg max-w-2xl mx-auto">
-            One platform. Zero spreadsheets. More time behind the chair.
-          </p>
-        </div>
 
         {/* Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
