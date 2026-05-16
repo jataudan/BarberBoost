@@ -15,6 +15,7 @@ const PROTECTED_PREFIXES = [
   '/marketing',
   '/inventory',
   '/settings',
+  '/admin',
 ]
 
 /**

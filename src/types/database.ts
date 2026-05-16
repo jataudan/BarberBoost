@@ -12,6 +12,7 @@ export type SubscriptionPlan   = 'free' | 'starter' | 'pro' | 'empire'
 export type SubscriptionStatus = 'active' | 'canceled' | 'past_due' | 'trialing' | 'inactive'
 export type BookingStatus      = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no_show'
 export type PaymentMethod      = 'card' | 'cash' | 'bank_transfer'
+export type AdminStatus        = 'active' | 'suspended' | 'disabled'
 
 // ── Opening hours shape stored in JSONB ─────────────────────
 export interface DayHours {
@@ -59,6 +60,7 @@ export interface Shop {
   no_show_fee:          number
   currency:             string
   timezone:             string
+  admin_status:         AdminStatus
   created_at:           string
   updated_at:           string
 }

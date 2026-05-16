@@ -28,6 +28,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   if (!user) redirect('/login')
 
+  // Enforce admin_status: block access to dashboard for suspended/disabled shops
+  if (shop?.admin_status === 'disabled')  redirect('/account-disabled')
+  if (shop?.admin_status === 'suspended') redirect('/account-suspended')
+
   // Unread notification count
   let notificationCount = 0
   if (shop) {
