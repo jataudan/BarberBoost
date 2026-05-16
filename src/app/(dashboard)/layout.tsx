@@ -1,8 +1,12 @@
 import { redirect } from 'next/navigation'
-import { getUser, getShop, getSubscription, createClient } from '@/lib/supabase/server'
+import { getUser, getShop, getSubscription, createClient, createServiceClient } from '@/lib/supabase/server'
 import { DashboardShell } from '@/components/dashboard/DashboardShell'
 
 export const dynamic = 'force-dynamic'
+
+// Grace period: 7 days past_due before we force-downgrade the plan in our DB.
+// Stripe will eventually cancel and fire the webhook, but this acts as a safety net.
+const GRACE_PERIOD_DAYS = 7
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [user, shop, subscription] = await Promise.all([
@@ -10,6 +14,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
     getShop(),
     getSubscription(),
   ])
+
+  // Safety-net downgrade: if past_due and grace period has elapsed, set plan → free
+  if (subscription && subscription.status === 'past_due' && subscription.current_period_end) {
+    const periodEnd  = new Date(subscription.current_period_end)
+    const graceCutoff = new Date(periodEnd.getTime() + GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000)
+    if (new Date() > graceCutoff && subscription.plan !== 'free') {
+      const svc = await createServiceClient()
+      await svc.from('subscriptions').update({ plan: 'free' }).eq('id', subscription.id)
+      subscription.plan = 'free'
+    }
+  }
 
   if (!user) redirect('/login')
 

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { CreditCard, Store, UserCircle, Globe, ChevronRight } from 'lucide-react'
+import { CreditCard, Store, UserCircle, Globe, ChevronRight, Star, MessageSquarePlus } from 'lucide-react'
 
 const ITEMS = [
   {
@@ -33,6 +33,22 @@ const ITEMS = [
     description: 'Manage your subscription plan and payment details',
     accent:      'text-indigo-400',
     iconBg:      'bg-indigo-500/10',
+  },
+  {
+    href:        '/settings/reviews',
+    icon:        Star,
+    title:       'Reviews',
+    description: 'Approve customer reviews to display on your public booking page',
+    accent:      'text-[#c9a84c]',
+    iconBg:      'bg-[#c9a84c]/10',
+  },
+  {
+    href:        '/settings/rate-barberboost',
+    icon:        MessageSquarePlus,
+    title:       'Rate BarberBoost',
+    description: 'Share your experience — approved reviews appear on the BarberBoost website',
+    accent:      'text-emerald-400',
+    iconBg:      'bg-emerald-500/10',
   },
 ] as const
 

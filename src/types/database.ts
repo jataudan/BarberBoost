@@ -197,6 +197,17 @@ export interface Review {
   created_at:  string
 }
 
+export interface PlatformReview {
+  id:          string
+  owner_id:    string
+  shop_name:   string
+  plan:        string
+  rating:      number
+  comment:     string
+  is_approved: boolean
+  created_at:  string
+}
+
 export interface Notification {
   id:         string
   shop_id:    string
@@ -247,6 +258,10 @@ export type ReviewInsert = Omit<Review,
   'id' | 'created_at'
 >
 
+export type PlatformReviewInsert = Omit<PlatformReview,
+  'id' | 'created_at' | 'is_approved'
+>
+
 export type NotificationInsert = Omit<Notification,
   'id' | 'created_at'
 >
@@ -263,8 +278,9 @@ export type ClientUpdate       = Partial<ClientInsert>
 export type BookingUpdate      = Partial<BookingInsert>
 export type InventoryUpdate    = Partial<InventoryInsert>
 export type CampaignUpdate     = Partial<CampaignInsert>
-export type ReviewUpdate       = Partial<ReviewInsert>
-export type NotificationUpdate = Partial<NotificationInsert>
+export type ReviewUpdate          = Partial<ReviewInsert>
+export type PlatformReviewUpdate  = Partial<PlatformReviewInsert>
+export type NotificationUpdate    = Partial<NotificationInsert>
 
 // ============================================================
 // JOINED / EXTENDED TYPES
@@ -342,6 +358,11 @@ export interface Database {
         Row:    Review
         Insert: ReviewInsert
         Update: ReviewUpdate
+      }
+      platform_reviews: {
+        Row:    PlatformReview
+        Insert: PlatformReviewInsert
+        Update: PlatformReviewUpdate
       }
       notifications: {
         Row:    Notification

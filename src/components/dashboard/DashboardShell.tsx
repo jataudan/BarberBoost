@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { AlertTriangle, XCircle } from 'lucide-react'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { BottomNav } from './BottomNav'
@@ -77,6 +79,32 @@ export function DashboardShell({
           notificationCount={notificationCount}
           onMenuOpen={() => setMobileOpen(true)}
         />
+        {/* Subscription health banners */}
+        {subscription?.status === 'past_due' && (
+          <div className="flex items-center gap-3 bg-yellow-400/[0.08] border-b border-yellow-400/20 px-4 py-3 text-sm text-yellow-300 flex-shrink-0">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0 text-yellow-400" />
+            <span className="flex-1">
+              Your last payment failed. Update your payment method to avoid losing access to paid features.
+            </span>
+            <Link href="/settings/billing"
+              className="flex-shrink-0 bg-yellow-400 hover:bg-yellow-300 text-[#0a0a0a] font-bold text-xs px-3 py-1.5 rounded-lg transition-colors">
+              Fix Now
+            </Link>
+          </div>
+        )}
+        {(subscription?.status === 'canceled' || subscription?.status === 'inactive') && subscription.plan !== 'free' && (
+          <div className="flex items-center gap-3 bg-red-500/[0.08] border-b border-red-500/20 px-4 py-3 text-sm text-red-300 flex-shrink-0">
+            <XCircle className="w-4 h-4 flex-shrink-0 text-red-400" />
+            <span className="flex-1">
+              Your subscription has ended. Your account has been downgraded to the free plan.
+            </span>
+            <Link href="/settings/billing"
+              className="flex-shrink-0 bg-red-500 hover:bg-red-400 text-white font-bold text-xs px-3 py-1.5 rounded-lg transition-colors">
+              Reactivate
+            </Link>
+          </div>
+        )}
+
         {/* Extra bottom padding on mobile so content clears the bottom nav */}
         <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-20 lg:pb-6 bg-[#0a0a0a]">
           {children}

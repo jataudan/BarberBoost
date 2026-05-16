@@ -605,15 +605,102 @@ function Step5Confirm({
   )
 }
 
+// ── Inline review form (shown on success screen) ──────────────────────────
+
+function InlineReviewForm({ shopId, bookingId, clientName }: {
+  shopId: string; bookingId: string; clientName: string
+}) {
+  const [rating, setRating]       = useState(0)
+  const [hovered, setHovered]     = useState(0)
+  const [comment, setComment]     = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [done, setDone]           = useState(false)
+  const [error, setError]         = useState<string | null>(null)
+
+  async function submit() {
+    if (!rating) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/public/reviews', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop_id: shopId, booking_id: bookingId, client_name: clientName, rating, comment }),
+      })
+      if (res.status === 409) { setDone(true); return }
+      if (!res.ok) { const j = await res.json() as { error?: string }; throw new Error(j.error ?? 'Failed') }
+      setDone(true)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (done) {
+    return (
+      <div className="flex items-center gap-2 justify-center text-sm text-emerald-400 bg-emerald-500/[0.08] border border-emerald-500/20 rounded-xl px-4 py-3">
+        <Check className="w-4 h-4 flex-shrink-0" /> Thanks for your review!
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-[#111111] border border-white/[0.06] rounded-2xl p-5 space-y-4 text-left">
+      <div>
+        <p className="text-sm font-semibold text-white">How was your experience?</p>
+        <p className="text-xs text-zinc-500 mt-0.5">Leave a quick review for the shop</p>
+      </div>
+
+      {/* Star picker */}
+      <div className="flex gap-1.5">
+        {[1, 2, 3, 4, 5].map(n => (
+          <button key={n} type="button"
+            onClick={() => setRating(n)}
+            onMouseEnter={() => setHovered(n)}
+            onMouseLeave={() => setHovered(0)}
+            aria-label={`${n} star${n > 1 ? 's' : ''}`}
+            className="transition-transform hover:scale-110">
+            <svg className={cn('w-7 h-7 transition-colors',
+              n <= (hovered || rating) ? 'fill-[#c9a84c]' : 'fill-white/10')}
+              viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+            </svg>
+          </button>
+        ))}
+      </div>
+
+      {/* Comment */}
+      {rating > 0 && (
+        <textarea
+          rows={3}
+          placeholder="Tell us about your visit (optional)…"
+          value={comment}
+          onChange={e => setComment(e.target.value)}
+          className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-600 outline-none focus:border-[#c9a84c]/60 focus:ring-1 focus:ring-[#c9a84c]/20 resize-none transition-all"
+        />
+      )}
+
+      {error && <p className="text-xs text-red-400">{error}</p>}
+
+      <button type="button" onClick={submit}
+        disabled={!rating || submitting}
+        className="w-full flex items-center justify-center gap-2 bg-[#c9a84c] hover:bg-[#e2bf6a] disabled:opacity-40 disabled:cursor-not-allowed text-[#0a0a0a] font-bold rounded-xl py-3 text-sm transition-colors">
+        {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Submit Review'}
+      </button>
+    </div>
+  )
+}
+
 // ── Success screen ────────────────────────────────────────────────────────
 
 function SuccessScreen({
   bookingId, service, staffName, date, time, shopName, shopPhone, currency,
-  shopSlug,
+  shopSlug, shopId, clientName,
 }: {
   bookingId: string; service: PublicService; staffName: string
   date: string; time: string; shopName: string; shopPhone: string | null
-  currency: string; shopSlug: string
+  currency: string; shopSlug: string; shopId: string; clientName: string
 }) {
   const ref    = bookingId.slice(0, 8).toUpperCase()
   const dateObj = parseISO(date)
@@ -699,6 +786,9 @@ function SuccessScreen({
           </a>
         </div>
       </div>
+
+      {/* Review form */}
+      <InlineReviewForm shopId={shopId} bookingId={bookingId} clientName={clientName} />
 
       {/* Share */}
       <button type="button" onClick={handleShare}
@@ -841,6 +931,8 @@ export function PublicBookingFlow({ shop, services, staff }: Props) {
         shopPhone={shop.phone}
         currency={shop.currency}
         shopSlug={typeof window !== 'undefined' ? window.location.pathname.split('/').pop() ?? '' : ''}
+        shopId={shop.id}
+        clientName={details.name}
       />
     )
   }
