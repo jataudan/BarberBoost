@@ -48,6 +48,8 @@ export default function MarketingPage() {
   const [editCampaign, setEditCampaign]   = useState<Campaign | null>(null)
   const [deleteCampaign, setDeleteCampaign] = useState<Campaign | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [sendCampaign, setSendCampaign]   = useState<Campaign | null>(null)
+  const [sendLoading, setSendLoading]     = useState(false)
   const [upgradeOpen, setUpgradeOpen]     = useState(false)
 
   useEffect(() => {
@@ -107,6 +109,29 @@ export default function MarketingPage() {
   function handleEditClick(c: Campaign) {
     setEditCampaign(c)
     setModalOpen(true)
+  }
+
+  async function handleSendConfirm() {
+    if (!sendCampaign) return
+    setSendLoading(true)
+    try {
+      const res  = await fetch('/api/campaigns/send', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ campaign_id: sendCampaign.id }),
+      })
+      const json = await res.json() as { data?: { sentCount: number }; error?: string }
+      if (res.ok && json.data) {
+        setCampaigns(prev => prev.map(c =>
+          c.id === sendCampaign.id
+            ? { ...c, status: 'sent', sent_count: json.data!.sentCount, sent_at: new Date().toISOString() }
+            : c
+        ))
+      }
+    } finally {
+      setSendLoading(false)
+      setSendCampaign(null)
+    }
   }
 
   async function handleDelete() {
@@ -245,8 +270,8 @@ export default function MarketingPage() {
                       </div>
                     )}
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {c.status === 'draft' && (
-                        <button type="button" aria-label="Send campaign"
+                      {(c.status === 'draft' || c.status === 'scheduled') && (
+                        <button type="button" aria-label="Send campaign" onClick={() => setSendCampaign(c)}
                           className="w-7 h-7 rounded-lg bg-emerald-500/[0.08] hover:bg-emerald-500/[0.15] text-emerald-500 transition-colors flex items-center justify-center">
                           <Send className="w-3.5 h-3.5" />
                         </button>
@@ -297,6 +322,31 @@ export default function MarketingPage() {
               <button type="button" onClick={handleDelete} disabled={deleteLoading}
                 className="flex-1 bg-red-500/80 hover:bg-red-500 disabled:opacity-50 text-white rounded-xl py-2.5 text-sm font-semibold transition-colors flex items-center justify-center gap-2">
                 {deleteLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Delete'}
+              </button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      {/* Send Confirm */}
+      <Dialog.Root open={!!sendCampaign} onOpenChange={o => { if (!o) setSendCampaign(null) }}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+          <Dialog.Content className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm bg-[#111111] border border-[#2a2a2a] rounded-2xl p-6 shadow-2xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
+            <Dialog.Title className="font-semibold text-white text-lg mb-1">Send campaign now?</Dialog.Title>
+            <Dialog.Description className="text-zinc-400 text-sm mb-4">
+              <strong className="text-white">{sendCampaign?.name}</strong> will be sent immediately to{' '}
+              <span className="text-zinc-300">{SEGMENT_LABELS[sendCampaign?.target_segment ?? ''] ?? sendCampaign?.target_segment}</span>{' '}
+              via <span className="text-zinc-300">{sendCampaign?.type}</span>. This cannot be undone.
+            </Dialog.Description>
+            <div className="flex gap-3">
+              <Dialog.Close asChild>
+                <button type="button" className="flex-1 bg-white/[0.05] hover:bg-white/[0.08] text-zinc-300 rounded-xl py-2.5 text-sm font-medium transition-colors">Cancel</button>
+              </Dialog.Close>
+              <button type="button" onClick={handleSendConfirm} disabled={sendLoading}
+                className="flex-1 bg-emerald-600/80 hover:bg-emerald-600 disabled:opacity-50 text-white rounded-xl py-2.5 text-sm font-semibold transition-colors flex items-center justify-center gap-2">
+                {sendLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                {sendLoading ? 'Sending…' : 'Send Now'}
               </button>
             </div>
           </Dialog.Content>

@@ -620,6 +620,54 @@ export function confirmationEmail(data: ConfirmationEmailData) {
   return { subject, html: emailShell(content, 'BarberBoost'), text }
 }
 
+// ── 10. Campaign email ────────────────────────────────────────────────────
+
+export interface CampaignEmailData {
+  clientName: string
+  shopName:   string
+  subject:    string
+  content:    string   // may contain {name} placeholder
+  shopPhone?: string | null
+}
+
+export function campaignEmail(data: CampaignEmailData) {
+  // Replace {name} after escaping (esc() does not touch { or }, so pattern survives)
+  const escapedContent = esc(data.content).replace(/\{name\}/g, esc(data.clientName))
+
+  const paragraphs = escapedContent
+    .split(/\n{2,}/)
+    .filter(p => p.trim())
+    .map(p => `<p style="margin:0 0 14px;font-size:14px;color:${TEXT};line-height:1.7;">${p.replace(/\n/g, '<br>')}</p>`)
+    .join('')
+
+  const content = `
+    <h2 style="margin:0 0 20px;font-size:20px;font-weight:700;color:${TEXT};line-height:1.3;">${esc(data.subject)}</h2>
+    ${paragraphs}
+    ${data.shopPhone
+      ? `<p style="margin:20px 0 0;font-size:13px;color:${MUTED};line-height:1.6;">Questions? Call us on <a href="tel:${esc(data.shopPhone)}" style="color:${GOLD};text-decoration:none;">${esc(data.shopPhone)}</a></p>`
+      : ''
+    }
+  `
+
+  const textContent = data.content.replace(/\{name\}/g, data.clientName)
+  const text = [
+    data.subject,
+    '',
+    textContent,
+    data.shopPhone ? `\nQuestions? Call ${data.shopPhone}` : '',
+    '',
+    '---',
+    `This message was sent by ${data.shopName} via BarberBoost.`,
+    `To stop receiving marketing messages, contact us directly.`,
+  ].join('\n')
+
+  return {
+    subject: data.subject,
+    html:    emailShell(content, data.shopName),
+    text,
+  }
+}
+
 // ── 9. Subscription activated email ──────────────────────────────────────
 
 export interface SubscriptionActivatedData {

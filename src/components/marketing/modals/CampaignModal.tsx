@@ -5,7 +5,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { X, Loader2, AlertCircle, Type, AlignLeft, Users, ChevronDown, Sparkles, CheckCircle2 } from 'lucide-react'
+import { X, Loader2, AlertCircle, Type, AlignLeft, Users, ChevronDown, Sparkles, CheckCircle2, FileText, Zap, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Campaign } from '@/types/database'
 import type { PlanId } from '@/lib/stripe/plans'
@@ -21,6 +21,8 @@ const schema = z.object({
   scheduled_at:   z.string().optional().or(z.literal('')),
 })
 type FormValues = z.infer<typeof schema>
+
+type DeliveryMode = 'draft' | 'now' | 'schedule'
 
 const SEGMENTS = [
   { value: 'all',      label: 'All clients'          },
@@ -63,7 +65,10 @@ export function CampaignModal({ shopId, shopName = 'Your Shop', plan = 'free', o
   const watchedType    = watch('type')
   const watchedSegment = watch('target_segment')
 
-  // ── AI Copy state ────────────────────────────────────────────────────────
+  // ── Delivery mode ─────────────────────────────────────────────────────────
+  const [delivery, setDelivery] = useState<DeliveryMode>('draft')
+
+  // ── AI Copy state ─────────────────────────────────────────────────────────
   const [tone, setTone]               = useState<Tone>('friendly')
   const [aiLoading, setAiLoading]     = useState(false)
   const [aiError, setAiError]         = useState<string | null>(null)
@@ -80,8 +85,10 @@ export function CampaignModal({ shopId, shopName = 'Your Shop', plan = 'free', o
         target_segment: editCampaign.target_segment,
         scheduled_at:   editCampaign.scheduled_at   ?? '',
       })
+      setDelivery(editCampaign.scheduled_at ? 'schedule' : 'draft')
     } else {
       reset({ name: '', type: 'email', subject: '', content: '', target_segment: 'all', scheduled_at: '' })
+      setDelivery('draft')
     }
     setAiResult(null)
     setAiError(null)
@@ -108,7 +115,6 @@ export function CampaignModal({ shopId, shopName = 'Your Shop', plan = 'free', o
       if (!res.ok) { setAiError(json.error ?? 'Generation failed. Please try again.'); return }
       if (json.data) {
         setAiResult(json.data)
-        // Auto-populate body with email body or SMS depending on type
         const body = watchedType === 'sms' ? json.data.smsMessage : json.data.emailBody
         setValue('content', body, { shouldDirty: true })
       }
@@ -125,15 +131,66 @@ export function CampaignModal({ shopId, shopName = 'Your Shop', plan = 'free', o
   }
 
   async function onSubmit(values: FormValues) {
+    // Validate scheduled_at when scheduling
+    if (delivery === 'schedule' && !values.scheduled_at) {
+      setError('root', { message: 'Please select a date and time to schedule the campaign' })
+      return
+    }
+
+    const scheduledAt = delivery === 'schedule' ? (values.scheduled_at || null) : null
+
+    const payload = {
+      ...values,
+      subject:      values.subject || null,
+      content:      values.content || null,
+      scheduled_at: scheduledAt,
+    }
+
     const body = isEdit
-      ? JSON.stringify({ id: editCampaign!.id, ...values, subject: values.subject || null, content: values.content || null, scheduled_at: values.scheduled_at || null })
-      : JSON.stringify({ shop_id: shopId, ...values, subject: values.subject || null, content: values.content || null, scheduled_at: values.scheduled_at || null })
+      ? JSON.stringify({ id: editCampaign!.id, ...payload })
+      : JSON.stringify({ shop_id: shopId, ...payload })
 
     const res  = await fetch('/api/campaigns', { method: isEdit ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body })
     const json = await res.json() as { data?: Campaign; error?: string }
     if (!res.ok) { setError('root', { message: json.error ?? 'Something went wrong' }); return }
-    if (json.data) onSuccess?.(json.data)
+
+    const campaign = json.data!
+
+    if (delivery === 'now') {
+      try {
+        const sendRes  = await fetch('/api/campaigns/send', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ campaign_id: campaign.id }),
+        })
+        const sendJson = await sendRes.json() as { data?: { sentCount: number; campaignId: string }; error?: string }
+        if (sendRes.ok && sendJson.data) {
+          onSuccess?.({ ...campaign, status: 'sent', sent_count: sendJson.data.sentCount })
+        } else {
+          onSuccess?.(campaign)
+        }
+      } catch {
+        onSuccess?.(campaign)
+      }
+    } else {
+      onSuccess?.(campaign)
+    }
+
     onOpenChange(false)
+  }
+
+  const DELIVERY_OPTIONS: { value: DeliveryMode; label: string; description: string; Icon: React.ElementType }[] = [
+    { value: 'draft',    label: 'Save draft',          description: 'Save and send later',    Icon: FileText  },
+    { value: 'now',      label: 'Send now',             description: 'Dispatch immediately',   Icon: Zap       },
+    { value: 'schedule', label: 'Schedule',             description: 'Pick a date and time',   Icon: Calendar  },
+  ]
+
+  function submitLabel() {
+    if (isSubmitting) return isEdit ? 'Saving…' : delivery === 'now' ? 'Sending…' : 'Saving…'
+    if (isEdit)                return 'Save Changes'
+    if (delivery === 'now')    return 'Create & Send Now'
+    if (delivery === 'schedule') return 'Schedule Campaign'
+    return 'Save as Draft'
   }
 
   return (
@@ -141,13 +198,10 @@ export function CampaignModal({ shopId, shopName = 'Your Shop', plan = 'free', o
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <Dialog.Content className={cn(
-          // Mobile: bottom sheet — slides up from bottom, rounded top, max 92% height
           'fixed inset-x-0 bottom-0 z-50 flex flex-col bg-[#111111] shadow-2xl',
           'rounded-t-2xl border-t border-white/[0.06] max-h-[92dvh]',
-          // Desktop (md+): right side panel — full height, slides from right
           'md:inset-x-auto md:right-0 md:top-0 md:h-full md:w-full md:max-w-lg',
           'md:rounded-none md:border-t-0 md:border-l md:max-h-none',
-          // Animation — bottom slide mobile, right slide desktop
           'data-[state=open]:animate-in data-[state=closed]:animate-out duration-300',
           'data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
           'md:data-[state=closed]:slide-out-to-right md:data-[state=open]:slide-in-from-right',
@@ -217,7 +271,6 @@ export function CampaignModal({ shopId, shopName = 'Your Shop', plan = 'free', o
             {/* ── AI Copy panel (Empire-only) ─────────────────────────── */}
             {plan === 'empire' && (
               <div className="bg-gradient-to-br from-emerald-950/40 to-[#111111] border border-emerald-500/20 rounded-2xl p-4 space-y-4">
-                {/* Header row */}
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <div className="w-7 h-7 rounded-lg bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
@@ -231,7 +284,6 @@ export function CampaignModal({ shopId, shopName = 'Your Shop', plan = 'free', o
                   <span className="text-[10px] font-bold px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-emerald-400 uppercase tracking-wider">Empire</span>
                 </div>
 
-                {/* Tone selector */}
                 <div className="space-y-1.5">
                   <p className="text-[11px] font-medium text-zinc-500">Tone</p>
                   <div className="flex gap-1.5 flex-wrap">
@@ -249,7 +301,6 @@ export function CampaignModal({ shopId, shopName = 'Your Shop', plan = 'free', o
                   </div>
                 </div>
 
-                {/* Generate button */}
                 <button type="button" onClick={generateWithAI} disabled={aiLoading}
                   className="w-full flex items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed border border-emerald-500/25 text-emerald-300 rounded-xl py-2.5 text-sm font-semibold transition-all">
                   {aiLoading
@@ -258,17 +309,14 @@ export function CampaignModal({ shopId, shopName = 'Your Shop', plan = 'free', o
                   }
                 </button>
 
-                {/* AI error */}
                 {aiError && (
                   <div className="flex items-start gap-2 bg-red-500/[0.08] border border-red-500/20 rounded-xl px-3 py-2.5 text-xs text-red-400">
                     <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />{aiError}
                   </div>
                 )}
 
-                {/* AI results */}
                 {aiResult && (
                   <div className="space-y-3 pt-1 border-t border-white/[0.06]">
-                    {/* Subject chips */}
                     {watchedType === 'email' && aiResult.subjects.length > 0 && (
                       <div className="space-y-1.5">
                         <p className="text-[11px] font-medium text-zinc-500">Subject lines — click to use</p>
@@ -290,23 +338,17 @@ export function CampaignModal({ shopId, shopName = 'Your Shop', plan = 'free', o
                         </div>
                       </div>
                     )}
-
-                    {/* SMS preview chip */}
                     {watchedType === 'sms' && (
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between">
                           <p className="text-[11px] font-medium text-zinc-500">Generated SMS</p>
-                          <span className={cn(
-                            'text-[10px] font-semibold',
-                            aiResult.smsMessage.length > 140 ? 'text-yellow-400' : 'text-zinc-600'
-                          )}>
+                          <span className={cn('text-[10px] font-semibold', aiResult.smsMessage.length > 140 ? 'text-yellow-400' : 'text-zinc-600')}>
                             {aiResult.smsMessage.length}/160
                           </span>
                         </div>
                         <p className="text-xs text-zinc-400 leading-relaxed">Content field has been populated below.</p>
                       </div>
                     )}
-
                     {watchedType === 'push' && (
                       <p className="text-xs text-zinc-500">Email body has been used as push notification text below.</p>
                     )}
@@ -337,21 +379,43 @@ export function CampaignModal({ shopId, shopName = 'Your Shop', plan = 'free', o
               <p className="text-[10px] text-zinc-600">Use {'{name}'} to personalise with the client&apos;s first name.</p>
             </div>
 
-            {/* Schedule */}
-            <div className="space-y-1.5">
-              <label htmlFor="camp-sched" className="text-xs font-medium text-zinc-400">Schedule (optional)</label>
-              <input id="camp-sched" type="datetime-local" className={INPUT} {...register('scheduled_at')} />
-              <p className="text-[10px] text-zinc-600">Leave blank to save as draft.</p>
+            {/* Delivery */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-zinc-400">Delivery</label>
+              <div className="grid grid-cols-3 gap-1.5">
+                {DELIVERY_OPTIONS.map(({ value, label, description, Icon }) => (
+                  <button key={value} type="button" onClick={() => setDelivery(value)}
+                    className={cn(
+                      'flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border text-xs font-medium transition-all',
+                      delivery === value
+                        ? 'bg-[#c9a84c]/10 text-[#c9a84c] border-[#c9a84c]/25'
+                        : 'bg-white/[0.03] text-zinc-500 border-white/[0.06] hover:text-zinc-300 hover:border-white/10'
+                    )}>
+                    <Icon className="w-4 h-4" />
+                    <span className="font-semibold">{label}</span>
+                    <span className={cn('text-[10px] leading-tight text-center', delivery === value ? 'text-[#c9a84c]/70' : 'text-zinc-600')}>{description}</span>
+                  </button>
+                ))}
+              </div>
+
+              {delivery === 'schedule' && (
+                <div className="space-y-1 pt-1">
+                  <input type="datetime-local" className={INPUT} {...register('scheduled_at')} />
+                  <p className="text-[10px] text-zinc-600">Campaign will be dispatched automatically at the chosen time.</p>
+                </div>
+              )}
+
+              {delivery === 'now' && (
+                <p className="text-[10px] text-zinc-600 pt-0.5">Campaign will be dispatched immediately after saving.</p>
+              )}
             </div>
           </form>
 
           <div className="px-6 py-4 border-t border-white/[0.06] flex-shrink-0 bg-[#0d0d0d]">
             <button type="button" onClick={handleSubmit(onSubmit)} disabled={isSubmitting}
               className="w-full flex items-center justify-center gap-2 bg-[#c9a84c] hover:bg-[#e2bf6a] disabled:opacity-40 disabled:cursor-not-allowed text-[#0a0a0a] font-bold rounded-xl px-4 py-3 text-sm transition-colors">
-              {isSubmitting
-                ? <><Loader2 className="w-4 h-4 animate-spin" />{isEdit ? 'Saving…' : 'Creating…'}</>
-                : isEdit ? 'Save Changes' : 'Create Campaign'
-              }
+              {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+              {submitLabel()}
             </button>
           </div>
         </Dialog.Content>

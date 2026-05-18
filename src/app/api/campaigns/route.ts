@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     subject:        subject        || null,
     content:        content        || null,
     target_segment: target_segment || 'all',
-    status:         'draft',
+    status:         scheduled_at ? 'scheduled' : 'draft',
     scheduled_at:   scheduled_at   || null,
     sent_count:     0,
     open_rate:      null,
