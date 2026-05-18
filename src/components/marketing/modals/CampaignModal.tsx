@@ -7,7 +7,6 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { X, Loader2, AlertCircle, Type, AlignLeft, Users, ChevronDown, Sparkles, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { PlanGate } from '@/components/shared/PlanGate'
 import type { Campaign } from '@/types/database'
 import type { PlanId } from '@/lib/stripe/plans'
 import type { AICopyResponse } from '@/app/api/ai-copy/route'
@@ -215,8 +214,8 @@ export function CampaignModal({ shopId, shopName = 'Your Shop', plan = 'free', o
               </div>
             </div>
 
-            {/* ── AI Copy panel ───────────────────────────────────────── */}
-            <PlanGate requiredPlan="empire" currentPlan={plan}>
+            {/* ── AI Copy panel (Empire-only) ─────────────────────────── */}
+            {plan === 'empire' && (
               <div className="bg-gradient-to-br from-emerald-950/40 to-[#111111] border border-emerald-500/20 rounded-2xl p-4 space-y-4">
                 {/* Header row */}
                 <div className="flex items-center justify-between gap-3">
@@ -314,7 +313,7 @@ export function CampaignModal({ shopId, shopName = 'Your Shop', plan = 'free', o
                   </div>
                 )}
               </div>
-            </PlanGate>
+            )}
 
             {/* Subject (email only) */}
             {watchedType === 'email' && (

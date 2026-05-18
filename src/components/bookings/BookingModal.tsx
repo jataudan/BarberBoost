@@ -181,6 +181,21 @@ export function BookingModal({
   const [submitting,     setSubmitting]     = useState(false)
   const [submitError,    setSubmitError]    = useState<string | null>(null)
 
+  // ── Sync initial values & reset form whenever the modal opens ────
+  useEffect(() => {
+    if (!open) return
+    setStep(1)
+    setSelectedDate(initialDate ?? format(new Date(), 'yyyy-MM-dd'))
+    setSelectedStaffId(initialStaffId ?? '')
+    setSelectedTime(initialTime ?? '')
+    setSelectedServiceId('')
+    setClientName(''); setClientEmail(''); setClientPhone(''); setClientId(null)
+    setClientSearch(''); setClientResults([])
+    setNotes(''); setDepositEnabled(false); setSubmitError(null)
+  // Props are current due to React batching; intentionally only sync on open transition.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
   // ── Load staff ────────────────────────────────────────────────────
   useEffect(() => {
     if (!open) return
@@ -431,7 +446,7 @@ export function BookingModal({
               <button
                 type="button"
                 role="switch"
-                aria-checked={depositEnabled}
+                aria-checked={depositEnabled ? 'true' : 'false'}
                 aria-label="Require deposit"
                 onClick={() => setDepositEnabled((v) => !v)}
                 className={cn('w-10 h-6 rounded-full border relative flex-shrink-0 mt-0.5 transition-colors',

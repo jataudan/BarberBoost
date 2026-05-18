@@ -11,13 +11,14 @@ import {
   ArrowLeft, Edit, Loader2, AlertCircle,
   Phone, Mail, TrendingUp, Star, Percent,
   Calendar, CheckCircle2, Clock, ChevronLeft, ChevronRight,
-  Scissors, DollarSign,
+  Scissors, DollarSign, Plus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getInitials } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
-import { StaffModal } from '@/components/staff/StaffModal'
-import type { Staff, Booking, Service } from '@/types/database'
+import { StaffModal }   from '@/components/staff/StaffModal'
+import { BookingModal } from '@/components/bookings/BookingModal'
+import type { Staff, Booking, Service, BookingWithRelations } from '@/types/database'
 
 // ── localStorage helpers ──────────────────────────────────────────────────
 function stored(key: string, fallback = '') {
@@ -228,9 +229,11 @@ export default function StaffDetailPage() {
   const [perfData,   setPerfData]   = useState<PerformanceData | null>(null)
   const [loading,    setLoading]    = useState(true)
   const [error,      setError]      = useState<string | null>(null)
-  const [tab,        setTab]        = useState<'schedule' | 'performance' | 'commission'>('schedule')
-  const [editOpen,   setEditOpen]   = useState(false)
-  const [weekStart,  setWeekStart]  = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }))
+  const [tab,              setTab]              = useState<'schedule' | 'performance' | 'commission'>('schedule')
+  const [editOpen,         setEditOpen]         = useState(false)
+  const [weekStart,        setWeekStart]        = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }))
+  const [bookingModalOpen, setBookingModalOpen] = useState(false)
+  const [bookingModalDate, setBookingModalDate] = useState(() => format(new Date(), 'yyyy-MM-dd'))
 
   useEffect(() => {
     if (!staffId) return
@@ -405,6 +408,16 @@ export default function StaffDetailPage() {
               className="w-7 h-7 rounded-lg bg-[#111111] border border-white/[0.06] text-zinc-400 hover:text-white flex items-center justify-center transition-colors">
               <ChevronRight className="w-4 h-4" />
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                setBookingModalDate(format(weekStart, 'yyyy-MM-dd'))
+                setBookingModalOpen(true)
+              }}
+              className="flex items-center gap-1.5 bg-[#c9a84c] hover:bg-[#e2bf6a] text-[#0a0a0a] font-bold text-xs rounded-lg px-3 py-1.5 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />New Booking
+            </button>
           </div>
           <WeekSchedule bookings={weekBookings} weekStart={weekStart} currency={currency} />
 
@@ -537,6 +550,19 @@ export default function StaffDetailPage() {
             </p>
           </div>
         </div>
+      )}
+
+      {/* ── New booking modal ────────────────────────────────────────── */}
+      {shopId && (
+        <BookingModal
+          shopId={shopId}
+          shopCurrency={currency}
+          initialDate={bookingModalDate}
+          initialStaffId={staffId}
+          open={bookingModalOpen}
+          onOpenChange={setBookingModalOpen}
+          onSuccess={(_booking: BookingWithRelations) => setBookingModalOpen(false)}
+        />
       )}
 
       {/* ── Edit modal ───────────────────────────────────────────────── */}
