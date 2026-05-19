@@ -15,7 +15,9 @@ const PROTECTED_PREFIXES = [
   '/marketing',
   '/inventory',
   '/settings',
-  '/admin',
+  // /admin is intentionally excluded — the AdminLayout enforces its own
+  // auth and redirects to /admin-login, keeping it fully separate from
+  // the shop-owner auth flow.
 ]
 
 /**

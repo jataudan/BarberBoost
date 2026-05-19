@@ -58,6 +58,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/reset-password/update', origin))
   }
 
+  // Platform admins use /admin-login (signInWithPassword) — they never pass
+  // through this callback. But guard here too, just in case, so we never
+  // create a ghost shop or send a welcome email to an admin account.
+  const adminEmails = (process.env.ADMIN_EMAILS ?? '')
+    .split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
+  const isAdminAccount = user ? adminEmails.includes((user.email ?? '').toLowerCase()) : false
+
+  if (isAdminAccount) {
+    return NextResponse.redirect(new URL('/admin', origin))
+  }
+
   // ── Safeguard: ensure shop + subscription rows exist ───────────────────────
   // The on_auth_user_created DB trigger normally handles this at signup, but
   // this fallback catches cases where the trigger was absent or failed.
