@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { MapPin, Phone, CalendarCheck, MessageCircle, Navigation, Star } from 'lucide-react'
+import { getPreset, HERO_PRESETS } from '@/lib/hero-presets'
 import {
   PublicBookingFlow,
   type PublicShop,
@@ -195,6 +196,10 @@ export default async function PublicBookingPage({ params }: Props) {
     ? Math.round(reviews.reduce((s, r) => s + (r.rating ?? 0), 0) / reviews.length)
     : null
 
+  // Hero style: bb-preset → gradient theme, real URL → photo, null → default gradient
+  const heroPreset  = getPreset(shopRaw.cover_url) ?? HERO_PRESETS[0]
+  const isPhotoHero = !!shopRaw.cover_url && !shopRaw.cover_url.startsWith('bb-preset:')
+
   // JSON-LD
   const jsonLd = {
     '@context':   'https://schema.org',
@@ -280,36 +285,53 @@ export default async function PublicBookingPage({ params }: Props) {
         </div>
       </header>
 
-      {/* ── 2. COVER HERO ────────────────────────────────────────── */}
-      {shopRaw.cover_url && (
-        <section className="relative h-52 sm:h-64 overflow-hidden">
+      {/* ── 2. HERO ──────────────────────────────────────────────── */}
+      <section className="relative h-56 sm:h-72 overflow-hidden">
+        {/* Background: uploaded photo OR gradient theme */}
+        {isPhotoHero ? (
           <img
-            src={shopRaw.cover_url}
+            src={shopRaw.cover_url!}
             alt={`${shop.name} cover`}
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/50 to-transparent" />
-          <div className="absolute bottom-0 inset-x-0 px-4 pb-5 max-w-2xl mx-auto">
-            <p className="text-2xl font-black text-white drop-shadow">{shop.name}</p>
-            {shopRaw.description && (
-              <p className="text-sm text-zinc-300 mt-1 line-clamp-2 drop-shadow">{shopRaw.description}</p>
-            )}
+        ) : (
+          <>
+            <div className="absolute inset-0" style={{ background: heroPreset.background }} />
+            <div
+              className="absolute inset-0"
+              style={{ background: `radial-gradient(ellipse at 25% 45%, ${heroPreset.glowColor}2a 0%, transparent 65%)` }}
+            />
+          </>
+        )}
+        {/* Bottom fade into page */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/25 to-transparent" />
+        {/* Content overlay */}
+        <div className="absolute bottom-0 inset-x-0 px-4 pb-5 max-w-2xl mx-auto">
+          <p className="text-2xl sm:text-3xl font-black text-white drop-shadow-sm leading-tight">{shop.name}</p>
+          {shopRaw.description && (
+            <p className="text-sm text-zinc-300/90 mt-1 line-clamp-2 drop-shadow">{shopRaw.description}</p>
+          )}
+          {/* Floating stat badges */}
+          <div className="flex items-center gap-2 mt-2.5 flex-wrap">
             {avgRating && (
-              <div className="flex items-center gap-1.5 mt-2">
+              <div className="inline-flex items-center gap-1.5 bg-black/40 backdrop-blur-sm border border-white/[0.12] rounded-full px-2.5 py-1">
                 <StarRow rating={avgRating} />
-                <span className="text-xs text-zinc-300">{avgRating}.0 · {reviews.length} review{reviews.length !== 1 ? 's' : ''}</span>
+                <span className="text-[11px] text-zinc-200 font-semibold">{avgRating}.0 · {reviews.length} review{reviews.length !== 1 ? 's' : ''}</span>
               </div>
             )}
+            {services.length > 0 && (
+              <span className="inline-flex items-center bg-black/40 backdrop-blur-sm border border-white/[0.12] rounded-full px-2.5 py-1 text-[11px] text-zinc-200 font-medium">
+                {services.length} service{services.length !== 1 ? 's' : ''}
+              </span>
+            )}
+            {staff.length > 0 && (
+              <span className="inline-flex items-center bg-black/40 backdrop-blur-sm border border-white/[0.12] rounded-full px-2.5 py-1 text-[11px] text-zinc-200 font-medium">
+                {staff.length} barber{staff.length !== 1 ? 's' : ''}
+              </span>
+            )}
           </div>
-        </section>
-      )}
-
-      {/* Shop description (when no cover image) */}
-      {!shopRaw.cover_url && shopRaw.description && (
-        <div className="max-w-2xl mx-auto px-4 pt-5">
-          <p className="text-sm text-zinc-400 leading-relaxed">{shopRaw.description}</p>
         </div>
-      )}
+      </section>
 
       {/* ── 3. CONTACT ACTION BAR ────────────────────────────────── */}
       <section className="border-b border-white/[0.06] bg-[#0d0d0d] mt-4">

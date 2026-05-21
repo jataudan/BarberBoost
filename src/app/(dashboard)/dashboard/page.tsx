@@ -11,6 +11,7 @@ import { BookingCalendar, BookingCalendarSkeleton } from '@/components/dashboard
 import { UpgradedBanner } from '@/components/dashboard/UpgradedBanner'
 import { OnboardingChecklist } from '@/components/onboarding/OnboardingChecklist'
 import { WelcomeBanner } from '@/components/onboarding/WelcomeBanner'
+import { HeroStyleNudge } from '@/components/onboarding/HeroStyleNudge'
 import type { BookingWithRelations } from '@/types/database'
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -222,6 +223,9 @@ export default async function DashboardPage() {
       <Suspense>
         <WelcomeBanner />
       </Suspense>
+
+      {/* Hero style nudge (existing shops with no cover set) */}
+      <HeroStyleNudge />
 
       {/* Upgrade success banner */}
       <Suspense>
