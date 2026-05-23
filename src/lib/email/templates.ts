@@ -19,7 +19,7 @@ const MUTED   = '#71717a'
 const BORDER  = '#27272a'
 
 function emailShell(content: string, shopName: string): string {
-  const safeName = esc(shopName)
+  const safeName = esc(shopName.slice(0, 100))
   return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${safeName}</title></head>

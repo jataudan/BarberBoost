@@ -26,17 +26,8 @@ export interface AICopyResponse {
 
 // ── POST — generate campaign copy via Claude ───────────────────────────────
 export async function POST(request: NextRequest) {
-  // Rate limit: 5 AI generations per IP per minute (expensive operation)
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
-  const rl  = rateLimit(`ai_copy:${ip}`, 5, 60)
-  if (!rl.allowed) {
-    return NextResponse.json(
-      { error: 'Too many requests. Please wait before trying again.' },
-      { status: 429, headers: { 'Retry-After': String(rl.resetIn) } }
-    )
-  }
-
-  // Verify user is authenticated and on Empire plan
+  // Verify user is authenticated and on Empire plan before rate limiting,
+  // so the limit key is scoped to the user rather than a shared IP.
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorised' }, { status: 401 })
@@ -52,6 +43,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: 'AI Copy is an Empire plan feature. Upgrade to unlock it.' },
       { status: 403 }
+    )
+  }
+
+  // Rate limit per user: 30 generations per hour
+  const rl = rateLimit(`ai_copy:${user.id}`, 30, 3600)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please wait before trying again.' },
+      { status: 429, headers: { 'Retry-After': String(rl.resetIn) } }
     )
   }
 

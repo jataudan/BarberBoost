@@ -3,6 +3,10 @@ import { createClient } from '@/lib/supabase/server'
 import { PLANS } from '@/lib/stripe/plans'
 import type { PlanId } from '@/lib/stripe/plans'
 
+function escapeLike(s: string): string {
+  return s.replace(/[%_]/g, '\\$&')
+}
+
 // ── Auto-tag logic (mirrors the spec) ────────────────────────────────────
 function computeTags(
   totalVisits: number,
@@ -68,7 +72,8 @@ export async function GET(request: NextRequest) {
 
   // Search
   if (search) {
-    query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`)
+    const s = escapeLike(search)
+    query = query.or(`name.ilike.%${s}%,email.ilike.%${s}%,phone.ilike.%${s}%`)
   }
 
   // Tag filter (tags is a text[] column)

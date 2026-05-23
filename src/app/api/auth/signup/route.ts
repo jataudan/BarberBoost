@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { welcomeEmail, newSignupAlert } from '@/lib/email/templates'
+import { rateLimit } from '@/lib/rate-limit'
 
 const FROM   = process.env.RESEND_FROM_EMAIL ?? 'BarberBoost <noreply@barberboost.app>'
 const NOTIFY = process.env.NOTIFY_EMAIL      ?? 'barberboost.app@gmail.com'
@@ -15,6 +16,15 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://barberboost.app'
  * Body: { email, fullName, shopName, plan?, shopSlug? }
  */
 export async function POST(request: NextRequest) {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  const rl = rateLimit(`auth_signup:${ip}`, 10, 60)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests.' },
+      { status: 429, headers: { 'Retry-After': String(rl.resetIn) } }
+    )
+  }
+
   try {
     const body = await request.json()
     const { email, fullName, shopName, plan, shopSlug } = body

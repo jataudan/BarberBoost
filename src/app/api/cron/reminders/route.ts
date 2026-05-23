@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server'
+import { timingSafeEqual } from 'crypto'
 import { format, addHours, parseISO } from 'date-fns'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { bookingReminder, type BookingEmailData } from '@/lib/email/templates'
@@ -49,8 +50,12 @@ type BookingRow = {
 // ── GET — invoked by Vercel Cron ──────────────────────────────────────────────
 export async function GET(request: NextRequest) {
   // Vercel automatically passes CRON_SECRET as a Bearer token
-  const auth = request.headers.get('authorization')
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  const cronSecret = process.env.CRON_SECRET
+  const auth       = request.headers.get('authorization') ?? ''
+  if (!cronSecret) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const expected = Buffer.from(`Bearer ${cronSecret}`)
+  const actual   = Buffer.from(auth)
+  if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

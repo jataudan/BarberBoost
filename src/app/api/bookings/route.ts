@@ -6,6 +6,10 @@ import { bookingConfirmation, bookingCancellation, type BookingEmailData } from 
 import { format } from 'date-fns'
 
 // ── Helpers ───────────────────────────────────────────────────────────────
+function escapeLike(s: string): string {
+  return s.replace(/[%_]/g, '\\$&')
+}
+
 function formatTime12h(timeStr: string): string {
   const [h, m] = timeStr.split(':').map(Number)
   const d = new Date(); d.setHours(h, m, 0, 0)
@@ -77,7 +81,7 @@ export async function GET(request: NextRequest) {
     if (/^BB-/i.test(search)) {
       query = query.eq('booking_ref', search.toUpperCase())
     } else {
-      query = query.ilike('client_name', `%${search}%`)
+      query = query.ilike('client_name', `%${escapeLike(search)}%`)
     }
   }
 

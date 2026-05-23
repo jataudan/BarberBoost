@@ -58,7 +58,11 @@ async function sendPaymentReceiptEmail(to: string, amount: number, currency: str
 export async function POST(request: Request) {
   const body        = await request.text()
   const headersList = await headers()
-  const signature   = headersList.get('stripe-signature')!
+  const signature   = headersList.get('stripe-signature')
+
+  if (!signature) {
+    return NextResponse.json({ error: 'Missing stripe-signature header' }, { status: 400 })
+  }
 
   let event: Stripe.Event
   try {

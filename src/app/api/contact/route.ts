@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
+import { rateLimit } from '@/lib/rate-limit'
 
 const CONTACT_RECIPIENT = process.env.CONTACT_EMAIL ?? process.env.SUPPORT_EMAIL ?? 'webxcelld@gmail.com'
 
@@ -6,7 +7,16 @@ function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  const rl = rateLimit(`contact:${ip}`, 5, 60)
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please try again later.' },
+      { status: 429, headers: { 'Retry-After': String(rl.resetIn) } }
+    )
+  }
+
   try {
     const { name, email, subject, message } = await request.json()
 

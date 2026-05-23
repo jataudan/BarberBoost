@@ -14,13 +14,13 @@
 
 function normalisePhone(raw: string): string {
   const stripped = raw.replace(/\s+/g, '')
-  // UK mobile starting with 07 → +447
+  // UK mobile starting with 07 → +447xxxxxxxxx (11 digits total)
   if (/^07\d{9}$/.test(stripped)) return `+44${stripped.slice(1)}`
-  // Already has + prefix
-  if (stripped.startsWith('+')) return stripped
-  // Add + if it looks like an international number without it
-  if (/^\d{10,15}$/.test(stripped)) return `+${stripped}`
-  return stripped
+  // Already E.164 format: +[1-9] followed by 6-14 digits
+  if (/^\+[1-9]\d{6,14}$/.test(stripped)) return stripped
+  // Bare digits that look like international number without the +
+  if (/^[1-9]\d{6,14}$/.test(stripped)) return `+${stripped}`
+  throw new Error(`Invalid phone number: ${raw}`)
 }
 
 export async function sendWhatsApp(to: string, body: string): Promise<void> {
@@ -29,8 +29,7 @@ export async function sendWhatsApp(to: string, body: string): Promise<void> {
   const from  = process.env.TWILIO_WHATSAPP_FROM ?? 'whatsapp:+14155238886'
 
   if (!sid || !token) {
-    console.warn('[whatsapp] TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN not set — skipping send')
-    return
+    throw new Error('[whatsapp] TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN not configured')
   }
 
   const normalised = normalisePhone(to)

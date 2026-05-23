@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server'
 import { isAdmin } from '@/lib/admin'
 import { createServiceClient } from '@/lib/supabase/server'
 
+function escapeLike(s: string): string {
+  return s.replace(/[%_]/g, '\\$&')
+}
+
 export async function GET(request: Request) {
   if (!(await isAdmin())) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
@@ -30,7 +34,10 @@ export async function GET(request: Request) {
     .from('shops')
     .select('id, name, slug, email, phone, city, admin_status, created_at, owner_id, subscriptions(plan, status)', { count: 'exact' })
 
-  if (search)      query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,city.ilike.%${search}%`)
+  if (search) {
+    const s = escapeLike(search)
+    query = query.or(`name.ilike.%${s}%,email.ilike.%${s}%,city.ilike.%${s}%`)
+  }
   if (adminStatus) query = query.eq('admin_status', adminStatus)
   if (shopIdFilter !== null) query = query.in('id', shopIdFilter)
 

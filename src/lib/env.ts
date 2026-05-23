@@ -54,12 +54,7 @@ function validateEnv() {
       `\n\n❌ Missing or invalid environment variables:\n${missing}\n\n` +
       `Set these in Vercel → Project → Settings → Environment Variables.\n`
 
-    if (process.env.NODE_ENV === 'production') {
-      // Warn but don't crash — app may still function with partial config
-      console.error(message)
-    } else {
-      throw new Error(message)
-    }
+    throw new Error(message)
   }
 }
 
