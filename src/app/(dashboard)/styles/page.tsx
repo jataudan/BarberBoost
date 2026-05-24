@@ -314,8 +314,8 @@ function StyleModal({
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function StylesPage() {
-  const [shopId]     = useState(() => stored('bb_shop_id'))
-  const [plan]       = useState<PlanId>(() => (stored('bb_plan', 'free') as PlanId))
+  const [shopId, setShopId] = useState('')
+  const [plan,   setPlan]   = useState<PlanId | null>(null) // null = reading from localStorage
   const [styles,     setStyles]     = useState<HaircutStyle[]>([])
   const [staffList,  setStaffList]  = useState<Staff[]>([])
   const [loading,    setLoading]    = useState(true)
@@ -323,8 +323,16 @@ export default function StylesPage() {
   const [modalOpen,  setModalOpen]  = useState(false)
   const [editStyle,  setEditStyle]  = useState<HaircutStyle | null>(null)
 
-  const maxStyles   = (PLANS[plan]?.limits as Record<string, unknown>)?.styles as number ?? 0
-  const canAddStyles = maxStyles !== 0
+  // Read from localStorage in useEffect — useState initialiser runs on the server
+  // where window is undefined, so it always returns the fallback there.
+  useEffect(() => {
+    setShopId(localStorage.getItem('bb_shop_id') ?? '')
+    const stored = localStorage.getItem('bb_plan') as PlanId | null
+    setPlan((stored && stored in PLANS) ? stored : 'free')
+  }, [])
+
+  const maxStyles    = plan !== null ? ((PLANS[plan]?.limits as Record<string, unknown>)?.styles as number ?? 0) : null
+  const canAddStyles = maxStyles !== null && maxStyles !== 0
 
   const fetchStyles = useCallback(async () => {
     if (!shopId) return
@@ -392,7 +400,15 @@ export default function StylesPage() {
   const activeCount  = styles.filter(s => s.is_active).length
   const hiddenCount  = styles.filter(s => !s.is_active).length
 
-  // ── Free-plan upgrade wall ─────────────────────────────────────────────────
+  // ── Loading / Free-plan upgrade wall ──────────────────────────────────────
+  if (plan === null) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="w-6 h-6 animate-spin text-zinc-500" />
+      </div>
+    )
+  }
+
   if (!canAddStyles) {
     return (
       <div className="space-y-6 max-w-4xl">
