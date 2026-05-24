@@ -351,6 +351,7 @@ export function StylesClient({ shopId, plan, maxStyles }: {
               Upload reference photos so clients can show their barber exactly what they want.
               Available on the Starter plan and above.
             </p>
+            <p className="text-[10px] text-zinc-700 font-mono">debug: plan=&quot;{plan}&quot; maxStyles={maxStyles}</p>
           </div>
           <Link href="/settings/billing"
             className="flex items-center gap-2 bg-[#c9a84c] hover:bg-[#e2bf6a] text-[#0a0a0a] font-bold rounded-xl px-6 py-3 text-sm transition-colors">
