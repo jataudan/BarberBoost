@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -77,8 +77,10 @@ export interface StaffModalProps {
 
 // ── Component ─────────────────────────────────────────────────────────────
 export function StaffModal({ shopId, open, onOpenChange, editStaff, onSuccess }: StaffModalProps) {
-  const isEdit    = !!editStaff
-  const fileRef   = useRef<HTMLInputElement>(null)
+  const isEdit       = !!editStaff
+  const fileRef      = useRef<HTMLInputElement>(null)
+  const [uploadErr,  setUploadErr]  = useState<string | null>(null)
+  const [uploading,  setUploading]  = useState(false)
 
   const {
     register, handleSubmit, control, reset, watch,
@@ -126,10 +128,28 @@ export function StaffModal({ shopId, open, onOpenChange, editStaff, onSuccess }:
   async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file || !shopId) return
+
+    if (file.size > 2 * 1024 * 1024) {
+      setUploadErr('Image must be under 2 MB')
+      return
+    }
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setUploadErr('Only JPG, PNG or WebP images are supported')
+      return
+    }
+
+    setUploadErr(null)
+    setUploading(true)
     const sb   = createClient()
-    const path = `staff/${shopId}/${Date.now()}-${file.name}`
+    const ext  = file.name.split('.').pop() ?? 'jpg'
+    const path = `staff/${shopId}/${Date.now()}.${ext}`
     const { error } = await sb.storage.from('avatars').upload(path, file, { upsert: true })
-    if (error) return
+    setUploading(false)
+
+    if (error) {
+      setUploadErr(`Upload failed: ${error.message}`)
+      return
+    }
     const { data } = sb.storage.from('avatars').getPublicUrl(path)
     setValue('avatar_url', data.publicUrl)
   }
@@ -208,18 +228,24 @@ export function StaffModal({ shopId, open, onOpenChange, editStaff, onSuccess }:
                 <button
                   type="button"
                   onClick={() => fileRef.current?.click()}
+                  disabled={uploading}
                   aria-label="Upload avatar"
-                  className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#c9a84c] text-[#0a0a0a] flex items-center justify-center shadow-lg hover:bg-[#e2bf6a] transition-colors"
+                  className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#c9a84c] text-[#0a0a0a] flex items-center justify-center shadow-lg hover:bg-[#e2bf6a] transition-colors disabled:opacity-50"
                 >
-                  <Upload className="w-3 h-3" />
+                  {uploading
+                    ? <Loader2 className="w-3 h-3 animate-spin" />
+                    : <Upload className="w-3 h-3" />}
                 </button>
-                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+                <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleAvatarChange} />
               </div>
               <div className="flex-1 space-y-1">
                 <p className="text-xs text-zinc-400">Profile photo</p>
                 <p className="text-[10px] text-zinc-600">JPG, PNG or WebP · max 2 MB</p>
-                {watchedAvatarUrl && (
-                  <button type="button" onClick={() => setValue('avatar_url', '')}
+                {uploadErr && (
+                  <p className="text-[10px] text-red-400">{uploadErr}</p>
+                )}
+                {watchedAvatarUrl && !uploading && (
+                  <button type="button" onClick={() => { setValue('avatar_url', ''); setUploadErr(null) }}
                     className="text-[10px] text-red-400 hover:text-red-300 transition-colors">
                     Remove
                   </button>

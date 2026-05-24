@@ -8,6 +8,7 @@ import {
   type PublicShop,
   type PublicService,
   type PublicStaff,
+  type PublicStyle,
 } from '@/components/booking/PublicBookingFlow'
 import { ShareButton } from '@/components/booking/ShareButton'
 
@@ -126,7 +127,7 @@ export default async function PublicBookingPage({ params }: Props) {
 
   if (!shopRaw) notFound()
 
-  const [svcRes, stfRes, subRes, revRes] = await Promise.all([
+  const [svcRes, stfRes, subRes, revRes, stylesRes] = await Promise.all([
     supabase
       .from('services')
       .select('id, name, description, duration_minutes, price, category, colour')
@@ -137,7 +138,7 @@ export default async function PublicBookingPage({ params }: Props) {
 
     supabase
       .from('staff')
-      .select('id, name, bio, avatar_url, role, colour')
+      .select('id, name, bio, avatar_url, role, colour, blocked_dates')
       .eq('shop_id', shopRaw.id)
       .eq('is_active', true)
       .order('name'),
@@ -158,10 +159,19 @@ export default async function PublicBookingPage({ params }: Props) {
       .not('comment', 'is', null)
       .order('created_at', { ascending: false })
       .limit(5),
+
+    supabase
+      .from('haircut_styles')
+      .select('id, title, description, image_url, tags, barber_ids')
+      .eq('shop_id', shopRaw.id)
+      .eq('is_active', true)
+      .order('display_order', { ascending: true })
+      .order('created_at', { ascending: false }),
   ])
 
   const services   = (svcRes.data ?? []) as PublicService[]
   const staff      = (stfRes.data ?? []) as PublicStaff[]
+  const styles     = (stylesRes.data ?? []) as PublicStyle[]
   const plan       = subRes.data?.plan ?? 'free'
   const isFreePlan = plan === 'free'
   const reviews    = revRes.data ?? []
@@ -463,7 +473,7 @@ export default async function PublicBookingPage({ params }: Props) {
       </div>
 
       <main id="booking" className="max-w-2xl mx-auto px-4 py-6 scroll-mt-16">
-        <PublicBookingFlow shop={shop} services={services} staff={staff} />
+        <PublicBookingFlow shop={shop} services={services} staff={staff} styles={styles} />
       </main>
 
       {/* ── Powered-by badge (free plan only) ────────────────────── */}

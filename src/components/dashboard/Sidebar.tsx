@@ -19,6 +19,7 @@ import {
   X,
   Zap,
   LogOut,
+  Image as ImageIcon,
 } from 'lucide-react'
 
 // ── Plan-coloured Tailwind class maps ──────────────────────────────────────
@@ -76,6 +77,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Services',  href: '/services',  icon: Scissors },
   { label: 'Staff',     href: '/staff',     icon: UserCheck },
   { label: 'Analytics', href: '/analytics', icon: BarChart2 },
+  { label: 'Styles',    href: '/styles',    icon: ImageIcon, planRequired: 'starter' },
   { label: 'Marketing', href: '/marketing', icon: Megaphone, planRequired: 'starter' },
   { label: 'Inventory', href: '/inventory', icon: Package,   planRequired: 'pro' },
   { label: 'Settings',  href: '/settings',  icon: Settings },

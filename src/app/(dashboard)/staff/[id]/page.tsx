@@ -11,7 +11,7 @@ import {
   ArrowLeft, Edit, Loader2, AlertCircle,
   Phone, Mail, TrendingUp, Star, Percent,
   Calendar, CheckCircle2, Clock, ChevronLeft, ChevronRight,
-  Scissors, DollarSign, Plus,
+  Scissors, DollarSign, Plus, Ban, RefreshCw, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getInitials } from '@/lib/utils'
@@ -229,11 +229,15 @@ export default function StaffDetailPage() {
   const [perfData,   setPerfData]   = useState<PerformanceData | null>(null)
   const [loading,    setLoading]    = useState(true)
   const [error,      setError]      = useState<string | null>(null)
-  const [tab,              setTab]              = useState<'schedule' | 'performance' | 'commission'>('schedule')
+  const [tab,              setTab]              = useState<'schedule' | 'performance' | 'commission' | 'availability'>('schedule')
   const [editOpen,         setEditOpen]         = useState(false)
   const [weekStart,        setWeekStart]        = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }))
   const [bookingModalOpen, setBookingModalOpen] = useState(false)
   const [bookingModalDate, setBookingModalDate] = useState(() => format(new Date(), 'yyyy-MM-dd'))
+  const [blockedDates,     setBlockedDates]     = useState<string[]>([])
+  const [avViewMonth,      setAvViewMonth]      = useState(() => new Date())
+  const [savingBlocked,    setSavingBlocked]    = useState(false)
+  const [saveBlockedMsg,   setSaveBlockedMsg]   = useState<{ ok: boolean; text: string } | null>(null)
 
   useEffect(() => {
     if (!staffId) return
@@ -243,7 +247,9 @@ export default function StaffDetailPage() {
       .then((r) => r.json())
       .then(async ({ data, error: err }) => {
         if (err || !data) { setError(err ?? 'Staff not found'); setLoading(false); return }
-        setStaff(data as Staff)
+        const staffData = data as Staff
+        setStaff(staffData)
+        setBlockedDates(staffData.blocked_dates ?? [])
 
         const supabase = createClient()
 
@@ -380,11 +386,11 @@ export default function StaffDetailPage() {
       )}
 
       {/* ── Tabs ─────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-1 border-b border-white/[0.06] pb-1">
-        {(['schedule', 'performance', 'commission'] as const).map((t) => (
+      <div className="flex items-center gap-1 border-b border-white/[0.06] pb-1 overflow-x-auto [&::-webkit-scrollbar]:hidden">
+        {(['schedule', 'availability', 'performance', 'commission'] as const).map((t) => (
           <button key={t} type="button" onClick={() => setTab(t)}
             className={cn(
-              'px-4 py-2 text-sm font-medium rounded-lg transition-colors capitalize',
+              'px-4 py-2 text-sm font-medium rounded-lg transition-colors capitalize whitespace-nowrap',
               tab === t ? 'bg-[#c9a84c]/10 text-[#c9a84c]' : 'text-zinc-500 hover:text-zinc-300'
             )}>
             {t}
@@ -455,6 +461,199 @@ export default function StaffDetailPage() {
           )}
         </div>
       )}
+
+      {/* ── Availability tab ─────────────────────────────────────────── */}
+      {tab === 'availability' && (() => {
+        const today    = new Date(); today.setHours(0, 0, 0, 0)
+        const maxDate  = new Date(today); maxDate.setDate(today.getDate() + 90)
+        const monthStart = new Date(avViewMonth.getFullYear(), avViewMonth.getMonth(), 1)
+        const monthEnd   = new Date(avViewMonth.getFullYear(), avViewMonth.getMonth() + 1, 0)
+        // Build grid (Mon-first)
+        const gridStart = new Date(monthStart)
+        const startDay  = (gridStart.getDay() + 6) % 7  // 0=Mon
+        gridStart.setDate(gridStart.getDate() - startDay)
+        const days: Date[] = []
+        const cur = new Date(gridStart)
+        while (cur <= monthEnd || days.length % 7 !== 0) {
+          days.push(new Date(cur))
+          cur.setDate(cur.getDate() + 1)
+          if (days.length > 42) break
+        }
+
+        async function saveBlockedDates(newDates: string[]) {
+          setSavingBlocked(true)
+          setSaveBlockedMsg(null)
+          const res  = await fetch('/api/staff', {
+            method:  'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: staffId, blocked_dates: newDates }),
+          })
+          setSavingBlocked(false)
+          if (res.ok) {
+            setSaveBlockedMsg({ ok: true, text: 'Availability saved' })
+            setTimeout(() => setSaveBlockedMsg(null), 3000)
+          } else {
+            const j = await res.json() as { error?: string }
+            setSaveBlockedMsg({ ok: false, text: j.error ?? 'Failed to save' })
+          }
+        }
+
+        function toggleDate(dateStr: string) {
+          setBlockedDates(prev =>
+            prev.includes(dateStr) ? prev.filter(d => d !== dateStr) : [...prev, dateStr]
+          )
+        }
+
+        const canPrev = avViewMonth.getFullYear() > today.getFullYear() ||
+          avViewMonth.getMonth() > today.getMonth()
+
+        return (
+          <div className="space-y-4">
+            {/* Info banner */}
+            <div className="flex items-start gap-3 bg-[#c9a84c]/[0.06] border border-[#c9a84c]/15 rounded-xl px-4 py-3">
+              <Ban className="w-4 h-4 text-[#c9a84c] flex-shrink-0 mt-0.5" aria-hidden="true" />
+              <div>
+                <p className="text-sm font-medium text-zinc-200">Manage {staff.name}&apos;s availability</p>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  Tap any date to block or unblock it. Blocked dates prevent online bookings and clients see a clear
+                  &ldquo;not available&rdquo; notice. Save when done.
+                </p>
+              </div>
+            </div>
+
+            {/* Calendar */}
+            <div className="bg-[#111111] border border-white/[0.06] rounded-xl overflow-hidden">
+              {/* Month header */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
+                <button type="button"
+                  disabled={!canPrev}
+                  onClick={() => setAvViewMonth(m => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
+                  aria-label="Previous month"
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/[0.06] disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-sm font-semibold text-white">
+                  {avViewMonth.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+                </span>
+                <button type="button"
+                  onClick={() => setAvViewMonth(m => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
+                  aria-label="Next month"
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-colors">
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Day-of-week header */}
+              <div className="grid grid-cols-7 px-2 pt-2 pb-1">
+                {['Mo','Tu','We','Th','Fr','Sa','Su'].map(d => (
+                  <div key={d} className="text-center text-[10px] font-medium text-zinc-600 py-1">{d}</div>
+                ))}
+              </div>
+
+              {/* Days */}
+              <div className="px-2 pb-3">
+                {Array.from({ length: Math.ceil(days.length / 7) }).map((_, wi) => (
+                  <div key={wi} className="grid grid-cols-7">
+                    {days.slice(wi * 7, wi * 7 + 7).map((day, di) => {
+                      const dateStr  = format(day, 'yyyy-MM-dd')
+                      const inMonth  = day.getMonth() === avViewMonth.getMonth()
+                      const isPast   = day < today
+                      const isTooFar = day > maxDate
+                      const isBlocked = blockedDates.includes(dateStr)
+                      const isToday_ = format(day, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')
+                      const disabled = isPast || isTooFar || !inMonth
+
+                      return (
+                        <div key={di} className="aspect-square p-0.5 min-h-[38px]">
+                          <button
+                            type="button"
+                            disabled={disabled}
+                            onClick={() => toggleDate(dateStr)}
+                            title={isBlocked ? `Unblock ${dateStr}` : `Block ${dateStr}`}
+                            className={cn(
+                              'w-full h-full rounded-lg text-xs font-medium transition-all min-h-[38px] relative',
+                              disabled ? 'opacity-20 cursor-not-allowed text-zinc-600'
+                                : isBlocked ? 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30'
+                                : isToday_ ? 'ring-1 ring-[#c9a84c]/40 text-[#c9a84c] hover:bg-white/[0.06]'
+                                : 'text-zinc-300 hover:bg-white/[0.06]'
+                            )}
+                          >
+                            {format(day, 'd')}
+                            {isBlocked && inMonth && !disabled && (
+                              <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-red-400" />
+                            )}
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Legend */}
+            <div className="flex items-center gap-4 text-xs text-zinc-500">
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded bg-red-500/20 border border-red-500/30" />
+                Blocked — no bookings
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded bg-white/[0.04] border border-white/[0.08]" />
+                Available
+              </div>
+            </div>
+
+            {/* Save button */}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                disabled={savingBlocked}
+                onClick={() => void saveBlockedDates(blockedDates)}
+                className="flex items-center gap-2 bg-[#c9a84c] hover:bg-[#e2bf6a] disabled:opacity-40 disabled:cursor-not-allowed text-[#0a0a0a] font-bold rounded-xl px-5 py-2.5 text-sm transition-colors"
+              >
+                {savingBlocked
+                  ? <><Loader2 className="w-4 h-4 animate-spin" />Saving…</>
+                  : <>Save availability</>
+                }
+              </button>
+              <button
+                type="button"
+                onClick={() => setBlockedDates(staff.blocked_dates ?? [])}
+                className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />Reset
+              </button>
+              {saveBlockedMsg && (
+                <span className={cn('text-xs', saveBlockedMsg.ok ? 'text-emerald-400' : 'text-red-400')}>
+                  {saveBlockedMsg.text}
+                </span>
+              )}
+            </div>
+
+            {/* Blocked dates list */}
+            {blockedDates.length > 0 && (
+              <div className="bg-[#111111] border border-white/[0.06] rounded-xl p-4">
+                <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-3">
+                  {blockedDates.length} blocked date{blockedDates.length !== 1 ? 's' : ''}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {[...blockedDates].sort().map(d => (
+                    <div key={d} className="flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 rounded-lg px-2.5 py-1">
+                      <span className="text-xs text-red-400 font-medium">
+                        {new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </span>
+                      <button type="button" onClick={() => toggleDate(d)} aria-label={`Unblock ${d}`}
+                        className="text-red-500 hover:text-red-300 transition-colors">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* ── Performance tab ───────────────────────────────────────────── */}
       {tab === 'performance' && perfData && (

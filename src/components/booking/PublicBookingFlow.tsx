@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   ChevronLeft, ChevronRight, Check, Clock, Scissors, User,
-  Calendar, Phone, Mail, MapPin, Star, Loader2, X,
-  CalendarPlus, Share2, AlertCircle, ChevronDown,
+  Calendar, Loader2, X,
+  CalendarPlus, Share2, AlertCircle, ZoomIn, Sliders,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval,
@@ -22,6 +22,15 @@ export interface PublicService {
   colour: string
 }
 
+export interface PublicStyle {
+  id: string
+  title: string
+  description: string | null
+  image_url: string
+  tags: string[]
+  barber_ids: string[]
+}
+
 export interface PublicStaff {
   id: string
   name: string
@@ -29,6 +38,7 @@ export interface PublicStaff {
   avatar_url: string | null
   role: string
   colour: string
+  blocked_dates: string[]
 }
 
 export interface PublicShop {
@@ -49,13 +59,15 @@ interface Props {
   shop:     PublicShop
   services: PublicService[]
   staff:    PublicStaff[]
+  styles?:  PublicStyle[]
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
-type Step = 1 | 2 | 3 | 4 | 5
+type Step = 1 | 2 | 3 | 4 | 5 | 6
 
-const STEP_LABELS = ['Service', 'Barber', 'Date & Time', 'Details', 'Confirm']
+const STEP_LABELS_NO_STYLES = ['Service', 'Barber', 'Date & Time', 'Details', 'Confirm']
+const STEP_LABELS_WITH_STYLES = ['Service', 'Style', 'Barber', 'Date & Time', 'Details', 'Confirm']
 
 const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
 
@@ -90,10 +102,10 @@ function isShopOpenOnDate(
 
 // ── Step indicator ────────────────────────────────────────────────────────
 
-function StepIndicator({ current }: { current: Step }) {
+function StepIndicator({ current, labels }: { current: Step; labels: string[] }) {
   return (
-    <div className="flex items-center justify-center gap-0 w-full max-w-xs mx-auto">
-      {STEP_LABELS.map((label, i) => {
+    <div className="flex items-center justify-center gap-0 w-full max-w-sm mx-auto">
+      {labels.map((label, i) => {
         const n       = (i + 1) as Step
         const done    = n < current
         const active  = n === current
@@ -101,25 +113,219 @@ function StepIndicator({ current }: { current: Step }) {
           <div key={n} className="flex items-center">
             <div className="flex flex-col items-center gap-1">
               <div className={cn(
-                'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all',
+                'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all',
                 done   ? 'bg-[#c9a84c] text-[#0a0a0a]'
                 : active ? 'bg-[#c9a84c]/20 text-[#c9a84c] border-2 border-[#c9a84c]'
                 : 'bg-white/[0.05] text-zinc-600 border-2 border-white/[0.08]'
               )}>
-                {done ? <Check className="w-3.5 h-3.5" /> : n}
+                {done ? <Check className="w-3 h-3" /> : n}
               </div>
-              <span className={cn('text-[9px] font-medium tracking-wide whitespace-nowrap hidden xs:block',
+              <span className={cn('text-[8px] font-medium tracking-wide whitespace-nowrap hidden xs:block',
                 active ? 'text-[#c9a84c]' : 'text-zinc-600')}>
                 {label}
               </span>
             </div>
-            {i < STEP_LABELS.length - 1 && (
-              <div className={cn('h-px w-5 xs:w-7 sm:w-8 mx-0.5 mb-4 xs:mb-5 transition-colors',
+            {i < labels.length - 1 && (
+              <div className={cn('h-px w-4 xs:w-5 sm:w-6 mx-0.5 mb-4 xs:mb-5 transition-colors',
                 done ? 'bg-[#c9a84c]' : 'bg-white/[0.08]')} />
             )}
           </div>
         )
       })}
+    </div>
+  )
+}
+
+// ── Step 2b: Haircut Style selection ─────────────────────────────────────────
+
+function Step2Styles({
+  styles, selectedIds, confidence, onToggle, onConfidenceChange, onSkip,
+}: {
+  styles:           PublicStyle[]
+  selectedIds:      string[]
+  confidence:       number
+  onToggle:         (id: string) => void
+  onConfidenceChange: (v: number) => void
+  onSkip:           () => void
+}) {
+  const [lightbox, setLightbox] = useState<PublicStyle | null>(null)
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h2 className="text-xl font-bold text-white">Choose your style</h2>
+        <p className="text-sm text-zinc-500 mt-0.5">
+          Pick up to 3 reference styles so your barber knows exactly what you&apos;re going for.{' '}
+          <button type="button" onClick={onSkip} className="text-[#c9a84c] hover:text-[#e2bf6a] transition-colors underline underline-offset-2">
+            Skip this step
+          </button>
+        </p>
+      </div>
+
+      {/* Selected count */}
+      {selectedIds.length > 0 && (
+        <div className="flex items-center gap-2 bg-[#c9a84c]/[0.06] border border-[#c9a84c]/15 rounded-xl px-4 py-2.5">
+          <Check className="w-3.5 h-3.5 text-[#c9a84c]" />
+          <span className="text-sm text-zinc-200">
+            {selectedIds.length} style{selectedIds.length !== 1 ? 's' : ''} selected
+            {selectedIds.length < 3 && <span className="text-zinc-500"> (up to {3 - selectedIds.length} more)</span>}
+          </span>
+        </div>
+      )}
+
+      {/* Style grid */}
+      <div className="grid grid-cols-2 gap-3">
+        {styles.map(style => {
+          const isSelected = selectedIds.includes(style.id)
+          const maxReached = selectedIds.length >= 3 && !isSelected
+
+          return (
+            <div key={style.id} className="relative">
+              {/* Lightbox button */}
+              <button
+                type="button"
+                onClick={() => setLightbox(style)}
+                aria-label={`View ${style.title} full size`}
+                className="absolute top-2 right-2 z-10 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition-colors"
+              >
+                <ZoomIn className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                type="button"
+                disabled={maxReached}
+                onClick={() => onToggle(style.id)}
+                className={cn(
+                  'w-full text-left rounded-2xl overflow-hidden border-2 transition-all',
+                  isSelected
+                    ? 'border-[#c9a84c] ring-2 ring-[#c9a84c]/20'
+                    : maxReached
+                    ? 'border-white/[0.04] opacity-40 cursor-not-allowed'
+                    : 'border-transparent hover:border-white/20'
+                )}
+              >
+                {/* Image */}
+                <div className="aspect-square bg-[#1a1a1a] overflow-hidden relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={style.image_url} alt={style.title}
+                    className="w-full h-full object-cover" />
+                  {isSelected && (
+                    <div className="absolute inset-0 bg-[#c9a84c]/15 flex items-center justify-center">
+                      <div className="w-8 h-8 rounded-full bg-[#c9a84c] flex items-center justify-center">
+                        <Check className="w-4 h-4 text-[#0a0a0a]" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {/* Title */}
+                <div className="bg-[#111111] px-2.5 py-2">
+                  <p className="text-xs font-semibold text-white truncate">{style.title}</p>
+                  {style.tags.length > 0 && (
+                    <p className="text-[10px] text-zinc-600 mt-0.5 truncate">{style.tags.join(' · ')}</p>
+                  )}
+                </div>
+              </button>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Confidence slider — only shown when at least one style selected */}
+      {selectedIds.length > 0 && (
+        <div className="bg-[#111111] border border-white/[0.06] rounded-2xl p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sliders className="w-4 h-4 text-[#c9a84c]" />
+              <p className="text-sm font-semibold text-white">How closely should your barber match this?</p>
+            </div>
+            <span className="text-sm font-bold text-[#c9a84c]">{confidence}%</span>
+          </div>
+          <input
+            type="range"
+            min={10}
+            max={100}
+            step={10}
+            value={confidence}
+            onChange={e => onConfidenceChange(Number(e.target.value))}
+            aria-label="Style match confidence"
+            className="w-full accent-[#c9a84c] h-1.5"
+          />
+          <div className="flex justify-between text-[10px] text-zinc-600">
+            <span>Loose inspiration</span>
+            <span>Exact match</span>
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox modal */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setLightbox(null)}
+        >
+          <button type="button" onClick={() => setLightbox(null)}
+            aria-label="Close preview"
+            className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+          <div className="max-w-sm w-full" onClick={e => e.stopPropagation()}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={lightbox.image_url} alt={lightbox.title}
+              className="w-full rounded-2xl object-cover max-h-[70vh]" />
+            <div className="mt-3 text-center">
+              <p className="text-base font-bold text-white">{lightbox.title}</p>
+              {lightbox.description && (
+                <p className="text-sm text-zinc-400 mt-1">{lightbox.description}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Blocked barber modal ──────────────────────────────────────────────────────
+
+function BlockedBarberModal({
+  barberName, date, onClose,
+}: {
+  barberName: string
+  date: string
+  onClose: () => void
+}) {
+  const fmtDate = (() => {
+    try { return format(parseISO(date), 'EEEE, d MMMM yyyy') } catch { return date }
+  })()
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-sm bg-[#111111] border border-white/[0.06] rounded-2xl overflow-hidden shadow-2xl p-6 text-center space-y-4">
+        {/* Icon */}
+        <div className="w-14 h-14 rounded-full bg-yellow-400/10 border border-yellow-400/20 flex items-center justify-center mx-auto">
+          <Calendar className="w-7 h-7 text-yellow-400" />
+        </div>
+
+        <div>
+          <h3 className="text-lg font-bold text-white">Barber Unavailable</h3>
+          <p className="text-sm text-zinc-400 mt-2 leading-relaxed">
+            <span className="text-zinc-200 font-medium">{barberName}</span> is not available on{' '}
+            <span className="text-zinc-200 font-medium">{fmtDate}</span>.
+          </p>
+          <p className="text-xs text-zinc-500 mt-2">
+            Please choose a different date or select another barber.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full bg-[#c9a84c] hover:bg-[#e2bf6a] text-[#0a0a0a] font-bold rounded-xl py-3 text-sm transition-colors"
+        >
+          Choose another date
+        </button>
+      </div>
     </div>
   )
 }
@@ -211,14 +417,15 @@ function Step1Service({
   )
 }
 
-// ── Step 2: Barber ────────────────────────────────────────────────────────
+// ── Step 3: Barber ────────────────────────────────────────────────────────
 
-function Step2Staff({
-  staff, selected, onSelect,
+function Step3Staff({
+  staff, selected, onSelect, note,
 }: {
   staff: PublicStaff[]
   selected: PublicStaff | 'any' | null
   onSelect: (s: PublicStaff | 'any') => void
+  note?: string
 }) {
   const AVATAR_BG = ['bg-[#c9a84c]/20 text-[#c9a84c]', 'bg-indigo-500/20 text-indigo-400',
     'bg-emerald-500/20 text-emerald-400', 'bg-rose-500/20 text-rose-400',
@@ -230,6 +437,13 @@ function Step2Staff({
         <h2 className="text-xl font-bold text-white">Choose your barber</h2>
         <p className="text-sm text-zinc-500 mt-0.5">Pick a specific barber or let us assign one</p>
       </div>
+
+      {note && (
+        <div className="flex items-start gap-2 bg-[#c9a84c]/[0.06] border border-[#c9a84c]/15 rounded-xl px-3 py-2.5 text-xs text-zinc-400">
+          <Scissors className="w-3.5 h-3.5 text-[#c9a84c] flex-shrink-0 mt-0.5" />
+          {note}
+        </div>
+      )}
 
       <div className="space-y-2.5">
         {/* Any barber option */}
@@ -290,16 +504,17 @@ function Step2Staff({
   )
 }
 
-// ── Step 3: Date & Time ───────────────────────────────────────────────────
+// ── Step 4: Date & Time ───────────────────────────────────────────────────
 
 type SlotInfo = { time: string; end_time: string; available: boolean; staffId: string | null }
 
 function MiniCalendar({
-  selectedDate, onSelect, openingHours,
+  selectedDate, onSelect, openingHours, blockedDates = [],
 }: {
   selectedDate: string | null
   onSelect: (d: string) => void
   openingHours: Record<string, { open: string; close: string; closed: boolean }>
+  blockedDates?: string[]
 }) {
   const today   = new Date(); today.setHours(0, 0, 0, 0)
   const maxDate = addDays(today, 30)
@@ -354,22 +569,28 @@ function MiniCalendar({
               const isShopOpen = isShopOpenOnDate(day, openingHours)
               const isToday    = isSameDay(day, new Date())
               const isSelected = selectedDate === dateStr
+              const isBlocked  = blockedDates.includes(dateStr)
               const disabled   = isPast || isTooFar || !isShopOpen || !inMonth
 
               return (
                 <div key={di} className="aspect-square p-0.5 min-h-[36px] xs:min-h-[40px]">
                   <button type="button"
-                    disabled={disabled}
+                    disabled={disabled && !isBlocked}
                     onClick={() => onSelect(dateStr)}
+                    title={isBlocked ? 'Barber unavailable' : undefined}
                     className={cn(
-                      'w-full h-full rounded-lg text-xs font-medium transition-all min-h-[36px]',
-                      disabled && 'opacity-25 cursor-not-allowed',
-                      !disabled && 'hover:bg-white/[0.06] cursor-pointer',
+                      'w-full h-full rounded-lg text-xs font-medium transition-all min-h-[36px] relative',
+                      disabled && !isBlocked && 'opacity-25 cursor-not-allowed',
+                      !disabled && !isBlocked && 'hover:bg-white/[0.06] cursor-pointer',
                       isSelected && 'bg-[#c9a84c] text-[#0a0a0a] font-bold hover:bg-[#c9a84c]',
-                      isToday && !isSelected && 'ring-1 ring-[#c9a84c]/40 text-[#c9a84c]',
-                      !isSelected && !disabled && 'text-zinc-300',
+                      isBlocked && !disabled && 'bg-red-500/10 text-red-400 border border-red-500/20 cursor-pointer hover:bg-red-500/20',
+                      isToday && !isSelected && !isBlocked && 'ring-1 ring-[#c9a84c]/40 text-[#c9a84c]',
+                      !isSelected && !disabled && !isBlocked && 'text-zinc-300',
                     )}>
                     {format(day, 'd')}
+                    {isBlocked && !disabled && (
+                      <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-red-400" />
+                    )}
                   </button>
                 </div>
               )
@@ -381,18 +602,34 @@ function MiniCalendar({
   )
 }
 
-function Step3DateTime({
+function Step4DateTime({
   shopId, serviceId, staffId, selectedDate, selectedTime, openingHours,
-  onDateSelect, onTimeSelect,
+  selectedStaff, onDateSelect, onTimeSelect,
 }: {
   shopId: string; serviceId: string; staffId: string
   selectedDate: string | null; selectedTime: string | null
   openingHours: Record<string, { open: string; close: string; closed: boolean }>
+  selectedStaff: PublicStaff | 'any' | null
   onDateSelect: (d: string) => void
   onTimeSelect: (slot: SlotInfo) => void
 }) {
   const [slots, setSlots]       = useState<SlotInfo[]>([])
   const [slotsLoading, setSlotsLoading] = useState(false)
+  const [blockedModal, setBlockedModal] = useState<string | null>(null) // date string when barber is blocked
+
+  // Check if a specific barber has this date blocked
+  const isBarberBlocked = useCallback((dateStr: string): boolean => {
+    if (!selectedStaff || selectedStaff === 'any') return false
+    return (selectedStaff as PublicStaff).blocked_dates?.includes(dateStr) ?? false
+  }, [selectedStaff])
+
+  const handleDateSelect = useCallback((dateStr: string) => {
+    if (isBarberBlocked(dateStr)) {
+      setBlockedModal(dateStr)
+      return
+    }
+    onDateSelect(dateStr)
+  }, [isBarberBlocked, onDateSelect])
 
   useEffect(() => {
     if (!selectedDate) { setSlots([]); return }
@@ -403,15 +640,27 @@ function Step3DateTime({
     })
     fetch(`/api/public/availability?${params}`)
       .then(r => r.json())
-      .then((json: { slots?: SlotInfo[] }) => setSlots(json.slots ?? []))
+      .then((json: { slots?: SlotInfo[]; blocked?: boolean }) => {
+        if (json.blocked) { setSlots([]); return }
+        setSlots(json.slots ?? [])
+      })
       .catch(() => setSlots([]))
       .finally(() => setSlotsLoading(false))
   }, [shopId, serviceId, staffId, selectedDate])
 
   const availableSlots = slots.filter(s => s.available)
+  const barberName = selectedStaff !== 'any' && selectedStaff ? (selectedStaff as PublicStaff).name : null
 
   return (
     <div className="space-y-5">
+      {blockedModal && barberName && (
+        <BlockedBarberModal
+          barberName={barberName}
+          date={blockedModal}
+          onClose={() => setBlockedModal(null)}
+        />
+      )}
+
       <div>
         <h2 className="text-xl font-bold text-white">Pick a date</h2>
         <p className="text-sm text-zinc-500 mt-0.5">Available times will appear once you pick a date</p>
@@ -419,8 +668,9 @@ function Step3DateTime({
 
       <MiniCalendar
         selectedDate={selectedDate}
-        onSelect={onDateSelect}
+        onSelect={handleDateSelect}
         openingHours={openingHours}
+        blockedDates={selectedStaff !== 'any' && selectedStaff ? (selectedStaff as PublicStaff).blocked_dates : []}
       />
 
       {selectedDate && (
@@ -460,13 +710,13 @@ function Step3DateTime({
   )
 }
 
-// ── Step 4: Client details ────────────────────────────────────────────────
+// ── Step 5: Client details ────────────────────────────────────────────────
 
 interface ClientDetails {
   name: string; email: string; phone: string; notes: string; agreed: boolean
 }
 
-function Step4Details({
+function Step5Details({
   shop, details, onChange, errors,
 }: {
   shop: PublicShop
@@ -561,13 +811,15 @@ function Step4Details({
   )
 }
 
-// ── Step 5: Confirm ───────────────────────────────────────────────────────
+// ── Step 6: Confirm ───────────────────────────────────────────────────────
 
-function Step5Confirm({
-  shop, service, staffName, date, time, details,
+function Step6Confirm({
+  shop, service, staffName, date, time, details, selectedStyles, confidence,
 }: {
   shop: PublicShop; service: PublicService; staffName: string
   date: string; time: string; details: ClientDetails
+  selectedStyles: PublicStyle[]
+  confidence: number
 }) {
   const rows = [
     { label: 'Service',  value: service.name },
@@ -601,6 +853,25 @@ function Step5Confirm({
           <span className="text-lg font-black text-[#c9a84c]">{fmtCur(service.price, shop.currency)}</span>
         </div>
       </div>
+
+      {/* Selected styles preview */}
+      {selectedStyles.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">
+            Desired styles ({confidence}% match)
+          </p>
+          <div className="flex gap-3 overflow-x-auto [&::-webkit-scrollbar]:hidden pb-1">
+            {selectedStyles.map(s => (
+              <div key={s.id} className="flex-shrink-0 w-20">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={s.image_url} alt={s.title}
+                  className="w-20 h-20 rounded-xl object-cover border border-[#c9a84c]/30" />
+                <p className="text-[9px] text-zinc-500 mt-1 truncate text-center">{s.title}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -810,9 +1081,16 @@ function SuccessScreen({
 
 // ── Main component ────────────────────────────────────────────────────────
 
-export function PublicBookingFlow({ shop, services, staff }: Props) {
+export function PublicBookingFlow({ shop, services, staff, styles = [] }: Props) {
+  const hasStyles = styles.length > 0
+
+  const STEP_LABELS = hasStyles ? STEP_LABELS_WITH_STYLES : STEP_LABELS_NO_STYLES
+  const TOTAL_STEPS = STEP_LABELS.length as 5 | 6
+
   const [step, setStep]             = useState<Step>(1)
   const [service, setService]       = useState<PublicService | null>(null)
+  const [selectedStyleIds, setSelectedStyleIds] = useState<string[]>([])
+  const [styleConfidence, setStyleConfidence]   = useState(80)
   const [selectedStaff, setSelectedStaff] = useState<PublicStaff | 'any' | null>(null)
   const [date, setDate]             = useState<string | null>(null)
   const [selectedSlot, setSelectedSlot] = useState<SlotInfo | null>(null)
@@ -825,6 +1103,33 @@ export function PublicBookingFlow({ shop, services, staff }: Props) {
   const [confirmedBooking, setConfirmedBooking] = useState<{
     id: string; staffName: string
   } | null>(null)
+
+  // Derive selected style objects for display
+  const selectedStyles = styles.filter(s => selectedStyleIds.includes(s.id))
+
+  // Filter staff by selected styles (if any style restricts barber_ids)
+  const filteredStaff = (() => {
+    if (!hasStyles || selectedStyleIds.length === 0) return staff
+    const restrictingStyles = selectedStyles.filter(s => s.barber_ids.length > 0)
+    if (restrictingStyles.length === 0) return staff
+    const allowedIds = restrictingStyles.reduce<Set<string>>((acc, s) => {
+      s.barber_ids.forEach(id => acc.add(id))
+      return acc
+    }, new Set())
+    return staff.filter(s => allowedIds.has(s.id))
+  })()
+
+  const staffNote = hasStyles && selectedStyleIds.length > 0 && filteredStaff.length < staff.length
+    ? `Showing ${filteredStaff.length} barber${filteredStaff.length !== 1 ? 's' : ''} who specialise in your selected style${selectedStyleIds.length !== 1 ? 's' : ''}`
+    : undefined
+
+  // Map logical step numbers between with-styles and without-styles flows
+  // With styles:    1=Service  2=Style  3=Barber  4=DateTime  5=Details  6=Confirm
+  // Without styles: 1=Service  2=Barber 3=DateTime 4=Details  5=Confirm
+  const staffStep    = hasStyles ? 3 : 2
+  const dateStep     = hasStyles ? 4 : 3
+  const detailsStep  = hasStyles ? 5 : 4
+  const confirmStep  = hasStyles ? 6 : 5
 
   // Reset time when date or staff changes
   useEffect(() => { setSelectedSlot(null) }, [date, selectedStaff])
@@ -839,15 +1144,15 @@ export function PublicBookingFlow({ shop, services, staff }: Props) {
   // ── Navigation ──────────────────────────────────────────────────────────
   function canAdvance(): boolean {
     if (step === 1) return !!service
-    if (step === 2) return selectedStaff !== null
-    if (step === 3) return !!date && !!selectedSlot
-    if (step === 4) return true // validated on attempt
-    return true
+    if (step === 2 && hasStyles) return true          // styles are optional — skip is always available
+    if (step === staffStep) return selectedStaff !== null
+    if (step === dateStep) return !!date && !!selectedSlot
+    return true                                        // detailsStep: validated on attempt
   }
 
   function advance() {
-    if (step === 4) { if (!validateDetails()) return }
-    if (step < 5) setStep((s => (s + 1) as Step)(step))
+    if (step === detailsStep) { if (!validateDetails()) return }
+    if (step < TOTAL_STEPS) setStep((s => (s + 1) as Step)(step))
   }
 
   function back() {
@@ -898,6 +1203,8 @@ export function PublicBookingFlow({ shop, services, staff }: Props) {
           client_email: details.email.trim(),
           client_phone: details.phone.trim() || undefined,
           notes:        details.notes.trim() || undefined,
+          selected_style_ids: selectedStyleIds.length > 0 ? selectedStyleIds : undefined,
+          style_confidence:   selectedStyleIds.length > 0 ? styleConfidence : undefined,
         }),
       })
       const json = await res.json() as { data?: { id: string; staff_name: string }; error?: string }
@@ -940,7 +1247,7 @@ export function PublicBookingFlow({ shop, services, staff }: Props) {
   // ── Main flow ────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
-      <StepIndicator current={step} />
+      <StepIndicator current={step} labels={STEP_LABELS} />
 
       {/* Step content */}
       <div className="min-h-[320px]">
@@ -950,34 +1257,51 @@ export function PublicBookingFlow({ shop, services, staff }: Props) {
             currency={shop.currency} onSelect={s => { setService(s); setStep(2) }}
           />
         )}
-        {step === 2 && (
-          <Step2Staff
-            staff={staff} selected={selectedStaff}
-            onSelect={s => { setSelectedStaff(s) }}
+        {step === 2 && hasStyles && (
+          <Step2Styles
+            styles={styles}
+            selectedIds={selectedStyleIds}
+            confidence={styleConfidence}
+            onToggle={id => setSelectedStyleIds(prev =>
+              prev.includes(id) ? prev.filter(x => x !== id) : prev.length < 3 ? [...prev, id] : prev
+            )}
+            onConfidenceChange={setStyleConfidence}
+            onSkip={() => setStep(staffStep as Step)}
           />
         )}
-        {step === 3 && service && (
-          <Step3DateTime
+        {step === staffStep && (
+          <Step3Staff
+            staff={filteredStaff}
+            selected={selectedStaff}
+            onSelect={s => setSelectedStaff(s)}
+            note={staffNote}
+          />
+        )}
+        {step === dateStep && service && (
+          <Step4DateTime
             shopId={shop.id} serviceId={service.id}
             staffId={resolvedStaffId}
             selectedDate={date} selectedTime={selectedSlot?.time ?? null}
             openingHours={shop.opening_hours}
+            selectedStaff={selectedStaff}
             onDateSelect={setDate}
             onTimeSelect={s => setSelectedSlot(s)}
           />
         )}
-        {step === 4 && (
-          <Step4Details
+        {step === detailsStep && (
+          <Step5Details
             shop={shop} details={details}
             onChange={setDetails} errors={detailErrors}
           />
         )}
-        {step === 5 && service && selectedSlot && date && (
-          <Step5Confirm
+        {step === confirmStep && service && selectedSlot && date && (
+          <Step6Confirm
             shop={shop} service={service}
             staffName={resolvedStaffName}
             date={date} time={selectedSlot.time}
             details={details}
+            selectedStyles={selectedStyles}
+            confidence={styleConfidence}
           />
         )}
       </div>
@@ -998,7 +1322,7 @@ export function PublicBookingFlow({ shop, services, staff }: Props) {
           </button>
         )}
 
-        {step < 5 ? (
+        {step < confirmStep ? (
           <button type="button" onClick={advance} disabled={!canAdvance()}
             className="flex-1 flex items-center justify-center gap-2 bg-[#c9a84c] hover:bg-[#e2bf6a] disabled:opacity-40 disabled:cursor-not-allowed text-[#0a0a0a] font-bold rounded-xl py-3.5 min-h-[48px] text-sm transition-colors">
             Continue <ChevronRight className="w-4 h-4" />

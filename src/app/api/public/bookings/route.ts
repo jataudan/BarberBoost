@@ -29,12 +29,12 @@ export async function POST(request: NextRequest) {
     shop_id, service_id, staff_id,
     date, start_time, end_time,
     client_name, client_email, client_phone,
-    notes,
+    notes, selected_style_ids, style_confidence,
   } = body as {
     shop_id: string; service_id: string; staff_id: string
     date: string; start_time: string; end_time: string
     client_name: string; client_email: string; client_phone?: string
-    notes?: string
+    notes?: string; selected_style_ids?: string[]; style_confidence?: number
   }
 
   // ── Basic validation ─────────────────────────────────────────────────────
@@ -176,16 +176,28 @@ export async function POST(request: NextRequest) {
       deposit_amount:  0,
       payment_method:  'cash',
       status:          'confirmed',
-      notes:           notes ?? null,
-      source:          'online',
-      is_paid:         false,
-      reminder_sent:   false,
+      notes:               notes ?? null,
+      source:              'online',
+      is_paid:             false,
+      reminder_sent:       false,
+      selected_style_ids:  selected_style_ids ?? [],
+      style_confidence:    style_confidence ?? null,
     })
     .select('id, booking_ref')
     .single()
 
   if (insertError || !booking) {
     return NextResponse.json({ error: insertError?.message ?? 'Failed to create booking' }, { status: 500 })
+  }
+
+  // ── Fetch style titles for email (if styles were selected) ──────────────
+  let selectedStyleTitles: string[] | undefined
+  if (selected_style_ids && selected_style_ids.length > 0) {
+    const { data: styleRows } = await supabase
+      .from('haircut_styles')
+      .select('title')
+      .in('id', selected_style_ids)
+    selectedStyleTitles = (styleRows ?? []).map(s => s.title as string)
   }
 
   // ── Send confirmation email ───────────────────────────────────────────────
@@ -205,8 +217,10 @@ export async function POST(request: NextRequest) {
     price:           service.price,
     currency:        shop.currency ?? 'GBP',
     bookingId:       booking.id,
-    bookingRef:      (booking.booking_ref as string | null) ?? booking.id.slice(0, 8).toUpperCase(),
-    bookingPageUrl:  `${appUrl}/booking/${(shop as { slug?: string }).slug ?? shop_id}`,
+    bookingRef:           (booking.booking_ref as string | null) ?? booking.id.slice(0, 8).toUpperCase(),
+    bookingPageUrl:       `${appUrl}/booking/${(shop as { slug?: string }).slug ?? shop_id}`,
+    selectedStyleTitles,
+    styleConfidence:      style_confidence,
   }
 
   try {

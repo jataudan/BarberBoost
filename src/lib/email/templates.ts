@@ -82,6 +82,8 @@ export interface BookingEmailData {
   bookingRef: string   // human-readable reference, e.g. "BB-A3F91C2B"
   depositAmount?: number
   bookingPageUrl?: string
+  selectedStyleTitles?: string[]
+  styleConfidence?: number
 }
 
 // ── 1. Booking Confirmation ────────────────────────────────────────────────
@@ -114,6 +116,7 @@ export function bookingConfirmation(data: BookingEmailData) {
       ${detailRow('Total', formatted)}
       ${depositFormatted ? detailRow('Deposit paid', depositFormatted) : ''}
       ${data.shopAddress ? detailRow('Location', esc(data.shopAddress)) : ''}
+      ${data.selectedStyleTitles?.length ? detailRow('Desired styles', esc(data.selectedStyleTitles.join(', ')) + (data.styleConfidence ? ` (${data.styleConfidence}% match)` : '')) : ''}
     </table>
 
     <p style="margin-top:24px;font-size:13px;color:${MUTED};line-height:1.6;">

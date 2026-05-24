@@ -75,6 +75,7 @@ export function BookingDetailModal({ booking, open, currency, onOpenChange, onSu
   const [saving,  setSaving]  = useState(false)
   const [error,   setError]   = useState<string | null>(null)
   const [local,   setLocal]   = useState<BookingWithRelations | null>(null)
+  const [styleItems, setStyleItems] = useState<{ id: string; title: string; image_url: string }[]>([])
 
   // Edit form fields
   const [clientName,    setClientName]    = useState('')
@@ -89,6 +90,19 @@ export function BookingDetailModal({ booking, open, currency, onOpenChange, onSu
   useEffect(() => {
     if (booking) setLocal(booking)
   }, [booking])
+
+  // Fetch style thumbnails when booking has selected styles
+  useEffect(() => {
+    const ids = (local?.selected_style_ids ?? []) as string[]
+    if (ids.length === 0) { setStyleItems([]); return }
+    import('@/lib/supabase/client').then(({ createClient }) => {
+      createClient()
+        .from('haircut_styles')
+        .select('id, title, image_url')
+        .in('id', ids)
+        .then(({ data }) => setStyleItems((data ?? []) as { id: string; title: string; image_url: string }[]))
+    })
+  }, [local?.selected_style_ids])
 
   // Reset to view mode when closed
   function handleOpenChange(val: boolean) {
@@ -330,6 +344,30 @@ export function BookingDetailModal({ booking, open, currency, onOpenChange, onSu
                         value={<span className="text-zinc-300 whitespace-pre-wrap text-xs leading-relaxed">{local.internal_notes}</span>}
                       />
                     )}
+                  </div>
+                )}
+
+                {/* Desired styles */}
+                {styleItems.length > 0 && (
+                  <div className="bg-[#0d0d0d] border border-white/[0.05] rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Desired Styles</p>
+                      {(local as { style_confidence?: number | null }).style_confidence && (
+                        <span className="text-[10px] text-[#c9a84c] font-semibold">
+                          {(local as { style_confidence?: number | null }).style_confidence}% match
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-3 overflow-x-auto [&::-webkit-scrollbar]:hidden">
+                      {styleItems.map(s => (
+                        <div key={s.id} className="flex-shrink-0 w-20">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={s.image_url} alt={s.title}
+                            className="w-20 h-20 rounded-xl object-cover border border-[#c9a84c]/25" />
+                          <p className="text-[9px] text-zinc-500 mt-1 truncate text-center">{s.title}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </>

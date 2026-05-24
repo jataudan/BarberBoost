@@ -95,6 +95,7 @@ export interface Staff {
   is_active:       boolean
   commission_rate: number
   working_hours:   Partial<WorkingHours>
+  blocked_dates:   string[]  // ISO date strings "YYYY-MM-DD"
   created_at:      string
 }
 
@@ -131,29 +132,45 @@ export interface Client {
 }
 
 export interface Booking {
-  id:             string
-  shop_id:        string
-  client_id:      string | null
-  staff_id:       string
-  service_id:     string
-  booking_ref:    string | null
-  client_name:    string
-  client_email:   string | null
-  client_phone:   string | null
-  date:           string          // "YYYY-MM-DD"
-  start_time:     string          // "HH:MM:SS"
-  end_time:       string          // "HH:MM:SS"
-  status:         BookingStatus
-  price:          number
-  deposit_amount: number
-  payment_method: PaymentMethod
-  is_paid:        boolean
-  notes:          string | null
-  internal_notes: string | null
-  reminder_sent:  boolean
-  source:         string
-  created_at:     string
-  updated_at:     string
+  id:                  string
+  shop_id:             string
+  client_id:           string | null
+  staff_id:            string
+  service_id:          string
+  booking_ref:         string | null
+  client_name:         string
+  client_email:        string | null
+  client_phone:        string | null
+  date:                string          // "YYYY-MM-DD"
+  start_time:          string          // "HH:MM:SS"
+  end_time:            string          // "HH:MM:SS"
+  status:              BookingStatus
+  price:               number
+  deposit_amount:      number
+  payment_method:      PaymentMethod
+  is_paid:             boolean
+  notes:               string | null
+  internal_notes:      string | null
+  reminder_sent:       boolean
+  source:              string
+  selected_style_ids:  string[]        // UUIDs of selected haircut_styles
+  style_confidence:    number | null   // 1–100, how closely client wants to match
+  created_at:          string
+  updated_at:          string
+}
+
+export interface HaircutStyle {
+  id:            string
+  shop_id:       string
+  title:         string
+  description:   string | null
+  image_url:     string
+  tags:          string[]
+  barber_ids:    string[]  // empty = all barbers
+  display_order: number
+  is_active:     boolean
+  created_at:    string
+  updated_at:    string
 }
 
 export interface InventoryItem {
@@ -260,6 +277,10 @@ export type ReviewInsert = Omit<Review,
   'id' | 'created_at'
 >
 
+export type HaircutStyleInsert = Omit<HaircutStyle,
+  'id' | 'created_at' | 'updated_at'
+>
+
 export type PlatformReviewInsert = Omit<PlatformReview,
   'id' | 'created_at' | 'is_approved'
 >
@@ -283,6 +304,7 @@ export type CampaignUpdate     = Partial<CampaignInsert>
 export type ReviewUpdate          = Partial<ReviewInsert>
 export type PlatformReviewUpdate  = Partial<PlatformReviewInsert>
 export type NotificationUpdate    = Partial<NotificationInsert>
+export type HaircutStyleUpdate    = Partial<HaircutStyleInsert>
 
 // ============================================================
 // JOINED / EXTENDED TYPES
@@ -370,6 +392,11 @@ export interface Database {
         Row:    Notification
         Insert: NotificationInsert
         Update: NotificationUpdate
+      }
+      haircut_styles: {
+        Row:    HaircutStyle
+        Insert: HaircutStyleInsert
+        Update: HaircutStyleUpdate
       }
     }
     Views:     Record<string, never>

@@ -532,6 +532,120 @@ CREATE TRIGGER trg_update_client_stats
   FOR EACH ROW EXECUTE FUNCTION update_client_stats();
 
 -- ============================================================
+-- MIGRATION v2 — Haircut Styles, Blocked Dates, Avatar bucket
+-- Safe to run on an existing database (uses IF NOT EXISTS / IF NOT EXISTS).
+-- Run in the Supabase SQL Editor after deploying the app update.
+-- ============================================================
+
+-- ── 1. Staff blocked dates ─────────────────────────────────────────────────
+-- Stores ISO date strings ("YYYY-MM-DD") for dates the barber is unavailable.
+ALTER TABLE staff ADD COLUMN IF NOT EXISTS blocked_dates TEXT[] DEFAULT '{}';
+
+-- ── 2. Haircut styles ──────────────────────────────────────────────────────
+-- Gallery of reference photos uploaded by the shop owner.
+CREATE TABLE IF NOT EXISTS haircut_styles (
+  id            UUID          DEFAULT gen_random_uuid() PRIMARY KEY,
+  shop_id       UUID          REFERENCES shops(id) ON DELETE CASCADE NOT NULL,
+  title         TEXT          NOT NULL,
+  description   TEXT,
+  image_url     TEXT          NOT NULL,
+  tags          TEXT[]        DEFAULT '{}',
+  barber_ids    UUID[]        DEFAULT '{}',  -- which barbers can deliver this style (empty = all)
+  display_order INTEGER       DEFAULT 0,
+  is_active     BOOLEAN       DEFAULT TRUE,
+  created_at    TIMESTAMPTZ   DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ   DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_haircut_styles_shop_id ON haircut_styles(shop_id);
+CREATE INDEX IF NOT EXISTS idx_haircut_styles_is_active ON haircut_styles(shop_id, is_active);
+
+CREATE OR REPLACE TRIGGER trg_haircut_styles_updated_at
+  BEFORE UPDATE ON haircut_styles
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+ALTER TABLE haircut_styles ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "owner_all_haircut_styles" ON haircut_styles;
+CREATE POLICY "owner_all_haircut_styles" ON haircut_styles
+  FOR ALL USING (
+    shop_id IN (SELECT id FROM shops WHERE owner_id = auth.uid())
+  )
+  WITH CHECK (
+    shop_id IN (SELECT id FROM shops WHERE owner_id = auth.uid())
+  );
+
+DROP POLICY IF EXISTS "public_read_active_haircut_styles" ON haircut_styles;
+CREATE POLICY "public_read_active_haircut_styles" ON haircut_styles
+  FOR SELECT USING (is_active = true);
+
+-- ── 3. Booking style selections ────────────────────────────────────────────
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS selected_style_ids UUID[]  DEFAULT '{}';
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS style_confidence   INTEGER;  -- 1-100, how closely the client wants to match
+
+-- ── 4. Storage buckets ─────────────────────────────────────────────────────
+
+-- Avatars for staff profile photos
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'avatars', 'avatars', true,
+  2097152,
+  '{image/png,image/jpeg,image/webp}'
+)
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "avatars_insert" ON storage.objects;
+DROP POLICY IF EXISTS "avatars_select" ON storage.objects;
+DROP POLICY IF EXISTS "avatars_update" ON storage.objects;
+DROP POLICY IF EXISTS "avatars_delete" ON storage.objects;
+
+CREATE POLICY "avatars_insert"
+  ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'avatars');
+
+CREATE POLICY "avatars_select"
+  ON storage.objects FOR SELECT TO public
+  USING (bucket_id = 'avatars');
+
+CREATE POLICY "avatars_update"
+  ON storage.objects FOR UPDATE TO authenticated
+  USING (bucket_id = 'avatars');
+
+CREATE POLICY "avatars_delete"
+  ON storage.objects FOR DELETE TO authenticated
+  USING (bucket_id = 'avatars');
+
+-- Haircut style reference photos
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'haircut-styles', 'haircut-styles', true,
+  5242880,
+  '{image/png,image/jpeg,image/webp}'
+)
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "haircut_styles_insert" ON storage.objects;
+DROP POLICY IF EXISTS "haircut_styles_select" ON storage.objects;
+DROP POLICY IF EXISTS "haircut_styles_update" ON storage.objects;
+DROP POLICY IF EXISTS "haircut_styles_delete" ON storage.objects;
+
+CREATE POLICY "haircut_styles_insert"
+  ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'haircut-styles');
+
+CREATE POLICY "haircut_styles_select"
+  ON storage.objects FOR SELECT TO public
+  USING (bucket_id = 'haircut-styles');
+
+CREATE POLICY "haircut_styles_update"
+  ON storage.objects FOR UPDATE TO authenticated
+  USING (bucket_id = 'haircut-styles');
+
+CREATE POLICY "haircut_styles_delete"
+  ON storage.objects FOR DELETE TO authenticated
+  USING (bucket_id = 'haircut-styles');
+
+-- ============================================================
 -- FUNCTION: notify_new_booking
 -- Inserts a notification row whenever a new booking is created.
 -- ============================================================

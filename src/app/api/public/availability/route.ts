@@ -74,27 +74,48 @@ export async function GET(request: NextRequest) {
   const shopHours = (shop.opening_hours ?? {}) as Partial<Record<DayKey, DayHours>>
 
   // ── Fetch staff ──────────────────────────────────────────────────────────
-  let staffRows: { id: string; working_hours: Partial<Record<DayKey, DayHours>> }[] = []
+  let staffRows: { id: string; working_hours: Partial<Record<DayKey, DayHours>>; blocked_dates: string[] }[] = []
 
   if (staffParam !== 'any') {
     const { data } = await supabase
       .from('staff')
-      .select('id, working_hours')
+      .select('id, working_hours, blocked_dates')
       .eq('id', staffParam)
       .eq('shop_id', shopId)
       .eq('is_active', true)
       .single()
-    if (data) staffRows = [{ id: data.id, working_hours: (data.working_hours ?? {}) as Partial<Record<DayKey, DayHours>> }]
+    if (data) {
+      staffRows = [{
+        id:            data.id,
+        working_hours: (data.working_hours ?? {}) as Partial<Record<DayKey, DayHours>>,
+        blocked_dates: (data.blocked_dates as string[] | null) ?? [],
+      }]
+    }
   } else {
     const { data } = await supabase
       .from('staff')
-      .select('id, working_hours')
+      .select('id, working_hours, blocked_dates')
       .eq('shop_id', shopId)
       .eq('is_active', true)
-    staffRows = (data ?? []).map(s => ({ id: s.id, working_hours: (s.working_hours ?? {}) as Partial<Record<DayKey, DayHours>> }))
+    staffRows = (data ?? []).map(s => ({
+      id:            s.id,
+      working_hours: (s.working_hours ?? {}) as Partial<Record<DayKey, DayHours>>,
+      blocked_dates: (s.blocked_dates as string[] | null) ?? [],
+    }))
   }
 
   if (!staffRows.length) return NextResponse.json({ slots: [] })
+
+  // Filter out staff who have this specific date blocked
+  const availableStaff = staffRows.filter(s => !s.blocked_dates.includes(date))
+
+  // If a specific barber was requested and they're blocked, return blocked signal
+  if (staffParam !== 'any' && staffRows.length > 0 && availableStaff.length === 0) {
+    return NextResponse.json({ slots: [], blocked: true })
+  }
+
+  if (!availableStaff.length) return NextResponse.json({ slots: [] })
+  staffRows = availableStaff
 
   // ── Fetch existing bookings for this date ───────────────────────────────
   const { data: existingBkgs } = await supabase
