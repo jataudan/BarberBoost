@@ -27,7 +27,7 @@ const dmSans = DM_Sans({
   display:  'swap',
 })
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://barberboost.app'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://barberboost.app'
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),

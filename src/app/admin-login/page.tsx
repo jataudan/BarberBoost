@@ -14,17 +14,16 @@ export default function AdminLoginPage() {
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState<string | null>(null)
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!email.trim() || !password) return
     setLoading(true)
     setError(null)
 
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
     const { error: authError } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
 
     if (authError) {
