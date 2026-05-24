@@ -1,12 +1,15 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import Link from 'next/link'
 import {
   Plus, Loader2, AlertCircle, Scissors, Upload, X, Edit2,
-  Trash2, Eye, EyeOff, Tag, Users, Zap,
+  Trash2, Eye, EyeOff, Tag, Users, Zap, Lock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
+import { PLANS } from '@/lib/stripe/plans'
+import type { PlanId } from '@/lib/stripe/plans'
 import type { HaircutStyle, Staff } from '@/types/database'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -312,13 +315,16 @@ function StyleModal({
 
 export default function StylesPage() {
   const [shopId]     = useState(() => stored('bb_shop_id'))
+  const [plan]       = useState<PlanId>(() => (stored('bb_plan', 'free') as PlanId))
   const [styles,     setStyles]     = useState<HaircutStyle[]>([])
   const [staffList,  setStaffList]  = useState<Staff[]>([])
   const [loading,    setLoading]    = useState(true)
   const [error,      setError]      = useState<string | null>(null)
   const [modalOpen,  setModalOpen]  = useState(false)
   const [editStyle,  setEditStyle]  = useState<HaircutStyle | null>(null)
-  const [planError,  setPlanError]  = useState<string | null>(null)
+
+  const maxStyles   = (PLANS[plan]?.limits as Record<string, unknown>)?.styles as number ?? 0
+  const canAddStyles = maxStyles !== 0
 
   const fetchStyles = useCallback(async () => {
     if (!shopId) return
@@ -341,7 +347,6 @@ export default function StylesPage() {
   }, [shopId, fetchStyles])
 
   function openCreate() {
-    setPlanError(null)
     setEditStyle(null)
     setModalOpen(true)
   }
@@ -384,19 +389,44 @@ export default function StylesPage() {
     }
   }
 
-  async function handleCreateClick() {
-    // Quick plan check before opening modal
-    const res  = await fetch('/api/styles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ _check: true }) })
-    const json = await res.json() as { error?: string; code?: string }
-    if (json.code === 'PLAN_LIMIT_EXCEEDED') {
-      setPlanError(json.error ?? 'Upgrade to add styles')
-      return
-    }
-    openCreate()
-  }
-
   const activeCount  = styles.filter(s => s.is_active).length
   const hiddenCount  = styles.filter(s => !s.is_active).length
+
+  // ── Free-plan upgrade wall ─────────────────────────────────────────────────
+  if (!canAddStyles) {
+    return (
+      <div className="space-y-6 max-w-4xl">
+        <div>
+          <h1 className="font-[family-name:var(--font-heading)] text-2xl tracking-widest text-white leading-none">
+            STYLES GALLERY
+          </h1>
+          <p className="text-sm text-zinc-500 mt-1">
+            Upload haircut reference photos. Clients pick their desired style at booking.
+          </p>
+        </div>
+
+        <div className="flex flex-col items-center justify-center py-20 gap-6 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-[#c9a84c]/10 border border-[#c9a84c]/20 flex items-center justify-center">
+            <Lock className="w-7 h-7 text-[#c9a84c]" />
+          </div>
+          <div className="space-y-2">
+            <p className="text-lg font-bold text-white">Styles Gallery — Starter plan and above</p>
+            <p className="text-sm text-zinc-500 max-w-sm leading-relaxed">
+              Upload reference photos so clients can show their barber exactly what they want.
+              Available on the Starter plan and above.
+            </p>
+          </div>
+          <Link
+            href="/settings/billing"
+            className="flex items-center gap-2 bg-[#c9a84c] hover:bg-[#e2bf6a] text-[#0a0a0a] font-bold rounded-xl px-6 py-3 text-sm transition-colors"
+          >
+            <Zap className="w-4 h-4" />
+            Upgrade to Starter
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -408,12 +438,14 @@ export default function StylesPage() {
           </h1>
           <p className="text-sm text-zinc-500 mt-1">
             Upload haircut reference photos. Clients pick their desired style at booking.
+            {maxStyles !== -1 && <span className="text-zinc-600"> ({styles.length}/{maxStyles} used)</span>}
           </p>
         </div>
         <button
           type="button"
           onClick={openCreate}
-          className="flex items-center gap-1.5 bg-[#c9a84c] hover:bg-[#e2bf6a] text-[#0a0a0a] font-bold rounded-xl px-4 py-2.5 text-sm transition-colors flex-shrink-0"
+          disabled={maxStyles !== -1 && styles.length >= maxStyles}
+          className="flex items-center gap-1.5 bg-[#c9a84c] hover:bg-[#e2bf6a] disabled:opacity-40 disabled:cursor-not-allowed text-[#0a0a0a] font-bold rounded-xl px-4 py-2.5 text-sm transition-colors flex-shrink-0"
         >
           <Plus className="w-4 h-4" />
           Add Style
@@ -433,19 +465,6 @@ export default function StylesPage() {
               {hiddenCount} hidden
             </span>
           )}
-        </div>
-      )}
-
-      {/* Plan upgrade nudge */}
-      {planError && (
-        <div className="flex items-start gap-3 bg-[#c9a84c]/[0.06] border border-[#c9a84c]/20 rounded-xl px-4 py-3">
-          <Zap className="w-4 h-4 text-[#c9a84c] flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm text-zinc-200">{planError}</p>
-            <a href="/settings/billing" className="text-xs text-[#c9a84c] hover:text-[#e2bf6a] transition-colors mt-1 inline-block">
-              Upgrade your plan →
-            </a>
-          </div>
         </div>
       )}
 
@@ -493,15 +512,17 @@ export default function StylesPage() {
               onToggle={handleToggle}
             />
           ))}
-          {/* Add new card */}
-          <button
-            type="button"
-            onClick={openCreate}
-            className="aspect-square rounded-2xl border-2 border-dashed border-white/[0.08] hover:border-[#c9a84c]/40 bg-[#111111] flex flex-col items-center justify-center gap-2 text-zinc-600 hover:text-zinc-400 transition-all"
-          >
-            <Plus className="w-6 h-6" />
-            <span className="text-xs font-medium">Add style</span>
-          </button>
+          {/* Add new card — only shown if limit not reached */}
+          {(maxStyles === -1 || styles.length < maxStyles) && (
+            <button
+              type="button"
+              onClick={openCreate}
+              className="aspect-square rounded-2xl border-2 border-dashed border-white/[0.08] hover:border-[#c9a84c]/40 bg-[#111111] flex flex-col items-center justify-center gap-2 text-zinc-600 hover:text-zinc-400 transition-all"
+            >
+              <Plus className="w-6 h-6" />
+              <span className="text-xs font-medium">Add style</span>
+            </button>
+          )}
         </div>
       )}
 
