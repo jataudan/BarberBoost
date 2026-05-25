@@ -5,7 +5,6 @@ import { StylesClient } from './_StylesClient'
 
 export default async function StylesPage() {
   const [shop, subscription] = await Promise.all([getShop(), getSubscription()])
-  console.log('[StylesPage] subscription:', JSON.stringify({ id: subscription?.id, plan: subscription?.plan, status: subscription?.status }))
 
   const plan   = ((subscription?.plan as PlanId | undefined) ?? 'free') satisfies PlanId
   const shopId = shop?.id ?? ''
