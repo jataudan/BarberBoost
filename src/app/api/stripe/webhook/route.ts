@@ -74,83 +74,98 @@ export async function POST(request: Request) {
 
   const supabase = await createServiceClient()
 
+  console.log(`[webhook] event: ${event.type} id=${event.id}`)
+
   switch (event.type) {
     case 'checkout.session.completed': {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const session      = event.data.object as any
+      const session = event.data.object as any
+      const userId  = session.metadata?.userId as string | undefined
+      const shopIdMeta = session.metadata?.shopId as string | undefined
+
+      console.log(`[webhook] checkout.session.completed userId=${userId} shopId=${shopIdMeta} customer=${session.customer}`)
+
+      if (!userId) {
+        console.error('[webhook] checkout.session.completed: missing userId in metadata — plan cannot be updated')
+        break
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const subscription = await getStripe().subscriptions.retrieve(session.subscription as string)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sub          = subscription as any
       const priceId      = sub.items.data[0].price.id
       const plan         = getPlanByPriceId(priceId)
 
-      const { data: shop } = await supabase.from('shops').select('id').eq('owner_id', session.metadata?.userId).single()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const shopId = (shop as any)?.id
+      console.log(`[webhook] checkout priceId=${priceId} resolved plan=${plan} subStatus=${sub.status}`)
 
-      if (shopId && plan) {
-        const subData = {
-          owner_id:               session.metadata?.userId,
-          stripe_customer_id:     session.customer as string,
-          stripe_subscription_id: sub.id,
-          stripe_price_id:        priceId,
-          plan,
-          status:                 sub.status,
-          current_period_start:   new Date(sub.current_period_start * 1000).toISOString(),
-          current_period_end:     new Date(sub.current_period_end   * 1000).toISOString(),
-          cancel_at_period_end:   sub.cancel_at_period_end,
-          trial_end:              sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
-          updated_at:             new Date().toISOString(),
-        }
+      if (!plan) {
+        console.error(`[webhook] checkout.session.completed: priceId ${priceId} not found in PLANS — check Stripe price IDs in Vercel env vars`)
+        break
+      }
 
-        // Update the most-recent subscription row (ordered to survive any
-        // historical duplicate rows); insert only if none found.
-        const { data: existingSubs } = await supabase
-          .from('subscriptions')
-          .select('id')
-          .eq('shop_id', shopId)
-          .order('updated_at', { ascending: false })
-          .limit(1)
-        const existingSub = existingSubs?.[0] ?? null
+      // Find shop by userId from metadata (most reliable), fall back to shopId
+      let shopId = shopIdMeta
+      if (!shopId) {
+        const { data: shop } = await supabase.from('shops').select('id').eq('owner_id', userId).maybeSingle()
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        shopId = (shop as any)?.id
+      }
 
-        if (existingSub) {
-          await supabase.from('subscriptions').update(subData).eq('id', existingSub.id)
-        } else {
-          await supabase.from('subscriptions').insert({ shop_id: shopId, ...subData })
-        }
+      if (!shopId) {
+        console.error(`[webhook] checkout.session.completed: shop not found for userId=${userId}`)
+        break
+      }
 
-        // Send subscription activated email
-        const customerEmail = (session.customer_email as string | null)
-          ?? await supabase.auth.admin.getUserById(session.metadata?.userId)
-              .then(({ data: u }) => u?.user?.email ?? null)
-              .catch(() => null)
+      const subData = {
+        owner_id:               userId,
+        stripe_customer_id:     session.customer as string,
+        stripe_subscription_id: sub.id,
+        stripe_price_id:        priceId,
+        plan,
+        status:                 sub.status,
+        current_period_start:   new Date(sub.current_period_start * 1000).toISOString(),
+        current_period_end:     new Date(sub.current_period_end   * 1000).toISOString(),
+        cancel_at_period_end:   sub.cancel_at_period_end,
+        trial_end:              sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
+        updated_at:             new Date().toISOString(),
+      }
 
-        if (customerEmail) {
-          try {
-            const { Resend: ResendClient } = await import('resend')
-            const resend = new ResendClient(process.env.RESEND_API_KEY)
-            const FROM   = process.env.RESEND_FROM_EMAIL ?? 'BarberBoost <noreply@barberboost.app>'
-            const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://barberboost.app'
+      const { data: existingSubs } = await supabase
+        .from('subscriptions').select('id').eq('shop_id', shopId)
+        .order('updated_at', { ascending: false }).limit(1)
+      const existingSub = existingSubs?.[0] ?? null
 
-            const planLabel  = plan.charAt(0).toUpperCase() + plan.slice(1)
-            // Detect annual billing by checking if the price ID matches an annual price
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const isAnnual   = Object.values(PLANS).some(p => (p as any).annualPriceId === priceId)
-            const periodEnd  = new Date(sub.current_period_end * 1000).toLocaleDateString('en-GB', {
-              day: 'numeric', month: 'long', year: 'numeric',
-            })
+      if (existingSub) {
+        const { error: updateErr } = await supabase.from('subscriptions').update(subData).eq('id', existingSub.id)
+        if (updateErr) console.error('[webhook] subscription update error:', updateErr)
+        else console.log(`[webhook] subscription updated → plan=${plan} status=${sub.status}`)
+      } else {
+        const { error: insertErr } = await supabase.from('subscriptions').insert({ shop_id: shopId, ...subData })
+        if (insertErr) console.error('[webhook] subscription insert error:', insertErr)
+        else console.log(`[webhook] subscription inserted → plan=${plan} status=${sub.status}`)
+      }
 
-            const tmpl = subscriptionActivated({
-              ownerName:    session.customer_details?.name ?? 'there',
-              plan:         planLabel,
-              billing:      isAnnual ? 'Annual' : 'Monthly',
-              periodEnd,
-              dashboardUrl: APP_URL + '/dashboard',
-            })
-            await resend.emails.send({ from: FROM, to: customerEmail, ...tmpl })
-          } catch (emailEx) {
-            console.error('[webhook] activation email error:', emailEx)
-          }
+      // Send subscription activated email
+      const customerEmail = (session.customer_email as string | null)
+        ?? await supabase.auth.admin.getUserById(userId)
+            .then(({ data: u }) => u?.user?.email ?? null)
+            .catch(() => null)
+
+      if (customerEmail) {
+        try {
+          const { Resend: ResendClient } = await import('resend')
+          const resend  = new ResendClient(process.env.RESEND_API_KEY)
+          const FROM    = process.env.RESEND_FROM_EMAIL ?? 'BarberBoost <noreply@barberboost.app>'
+          const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://barberboost.app'
+          const planLabel = plan.charAt(0).toUpperCase() + plan.slice(1)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const isAnnual  = Object.values(PLANS).some(p => (p as any).annualPriceId === priceId)
+          const periodEnd = new Date(sub.current_period_end * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+          const tmpl = subscriptionActivated({ ownerName: session.customer_details?.name ?? 'there', plan: planLabel, billing: isAnnual ? 'Annual' : 'Monthly', periodEnd, dashboardUrl: APP_URL + '/dashboard' })
+          await resend.emails.send({ from: FROM, to: customerEmail, ...tmpl })
+        } catch (emailEx) {
+          console.error('[webhook] activation email error:', emailEx)
         }
       }
       break
@@ -162,14 +177,25 @@ export async function POST(request: Request) {
       const sub     = event.data.object as any
       const priceId = sub.items.data[0].price.id
       const plan    = getPlanByPriceId(priceId)
-      await supabase.from('subscriptions').update({
+
+      console.log(`[webhook] ${event.type} subId=${sub.id} priceId=${priceId} resolved plan=${plan} status=${sub.status}`)
+
+      // IMPORTANT: if the price ID is not in our plan map (e.g. env vars mismatch),
+      // do NOT fall back to 'free' — that would silently downgrade paying customers.
+      // Only update the plan when we can positively identify it.
+      const planUpdate = plan ? { plan } : {}
+
+      const { error: subUpdateErr } = await supabase.from('subscriptions').update({
+        ...planUpdate,
         status:               sub.status,
-        plan:                 plan ?? 'free',
         stripe_price_id:      priceId,
         current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
         current_period_end:   new Date(sub.current_period_end   * 1000).toISOString(),
         cancel_at_period_end: sub.cancel_at_period_end,
       }).eq('stripe_subscription_id', sub.id)
+
+      if (subUpdateErr) console.error(`[webhook] ${event.type} update error:`, subUpdateErr)
+      else if (!plan) console.warn(`[webhook] ${event.type}: priceId ${priceId} not in PLANS — status updated but plan left unchanged`)
       break
     }
 
