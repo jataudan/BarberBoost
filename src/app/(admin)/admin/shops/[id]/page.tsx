@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   ArrowLeft, CheckCircle, PauseCircle, XCircle,
-  MapPin, Mail, Phone, Globe, Calendar, Users, CalendarCheck,
+  MapPin, Mail, Phone, Globe, Calendar, Users, CalendarCheck, Zap,
 } from 'lucide-react'
 import type { AdminStatus } from '@/types/database'
 
@@ -84,6 +84,25 @@ export default function AdminShopDetailPage() {
       setSuccess(`Shop ${status === 'active' ? 'activated' : status} successfully`)
     } else {
       setError(data.error ?? 'Failed to update status')
+    }
+    setSaving(false)
+  }
+
+  const setPlan = async (newPlan: string) => {
+    setSaving(true)
+    setError('')
+    setSuccess('')
+    const res = await fetch(`/api/admin/shops/${id}`, {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ plan: newPlan }),
+    })
+    const data = await res.json()
+    if (data.success) {
+      setSub(prev => prev ? { ...prev, plan: newPlan, status: 'active' } : { plan: newPlan, status: 'active', current_period_end: null, stripe_customer_id: null })
+      setSuccess(`Plan set to ${newPlan}`)
+    } else {
+      setError(data.error ?? 'Failed to update plan')
     }
     setSaving(false)
   }
@@ -235,6 +254,33 @@ export default function AdminShopDetailPage() {
 
         {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
         {success && <p className="mt-4 text-sm text-emerald-400">{success}</p>}
+      </div>
+
+      {/* Plan override */}
+      <div className="rounded-xl border border-white/10 p-5 mt-4">
+        <h2 className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-1">Plan Override</h2>
+        <p className="text-sm text-white/50 mb-5">
+          Manually set the subscription plan. This sets status to <code className="text-white/70">active</code> immediately, bypassing Stripe. Use for testing or support.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          {(['free', 'starter', 'pro', 'empire'] as const).map(p => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setPlan(p)}
+              disabled={saving || plan === p}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed capitalize
+                ${p === 'free'    ? 'bg-slate-500/15 text-slate-400 hover:bg-slate-500/25' : ''}
+                ${p === 'starter' ? 'bg-indigo-500/15 text-indigo-400 hover:bg-indigo-500/25' : ''}
+                ${p === 'pro'     ? 'bg-amber-500/15 text-amber-400 hover:bg-amber-500/25' : ''}
+                ${p === 'empire'  ? 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25' : ''}
+              `}
+            >
+              <Zap className="w-4 h-4" />
+              {p === plan ? `${p} (current)` : `Set to ${p}`}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Contact owner */}
