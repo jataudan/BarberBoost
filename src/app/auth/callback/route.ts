@@ -53,9 +53,11 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  // Password reset — send straight to update-password page
+  // Password reset — send to update-password page, preserving next destination
   if (type === 'recovery') {
-    return NextResponse.redirect(new URL('/reset-password/update', origin))
+    const updateUrl = new URL('/reset-password/update', origin)
+    if (next && next !== '/dashboard') updateUrl.searchParams.set('next', next)
+    return NextResponse.redirect(updateUrl)
   }
 
   // Platform admins use /admin-login (signInWithPassword) — they never pass

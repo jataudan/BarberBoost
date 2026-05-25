@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -29,7 +29,17 @@ const INPUT_NORMAL = `${INPUT_BASE} border-[#2a2a2a] focus:border-[#c9a84c]/60 f
 const INPUT_ERROR  = `${INPUT_BASE} border-red-500/40 focus:border-red-500/60 focus:ring-1 focus:ring-red-500/20`
 
 export default function UpdatePasswordPage() {
-  const router = useRouter()
+  return (
+    <Suspense>
+      <UpdatePasswordForm />
+    </Suspense>
+  )
+}
+
+function UpdatePasswordForm() {
+  const router       = useRouter()
+  const searchParams = useSearchParams()
+  const next         = searchParams.get('next') ?? '/dashboard'
   const [showPw, setShowPw] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
@@ -51,7 +61,7 @@ export default function UpdatePasswordPage() {
     }
     setDone(true)
     setTimeout(() => {
-      router.push('/dashboard')
+      router.push(next)
       router.refresh()
     }, 2000)
   }
@@ -66,7 +76,7 @@ export default function UpdatePasswordPage() {
           <h2 className="font-[family-name:var(--font-heading)] text-3xl tracking-widest text-white">
             PASSWORD UPDATED
           </h2>
-          <p className="text-zinc-500 text-sm">Redirecting you to the dashboard…</p>
+          <p className="text-zinc-500 text-sm">Redirecting you{next === '/admin-login' ? ' to admin login' : ' to the dashboard'}…</p>
         </div>
       </div>
     )
