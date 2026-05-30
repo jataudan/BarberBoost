@@ -11,20 +11,20 @@ interface BeforeInstallPromptEvent extends Event {
 export interface UsePwaInstallPromptReturn {
   /** Android/Chrome: a native install prompt is available to trigger */
   canInstall:    boolean
-  /** The device is iOS Safari — manual share-sheet instructions required */
+  /** The device is iOS — manual Share → Add to Home Screen required */
   isIos:         boolean
+  /** The device is Android but beforeinstallprompt hasn't fired yet — show manual instructions */
+  isAndroid:     boolean
   /** The page is already running as an installed standalone PWA */
   isStandalone:  boolean
   /** Whether to show the install banner (false if dismissed, installed, or standalone) */
   showBanner:    boolean
-  /** Android: triggers the native install prompt. No-op on iOS. */
+  /** Android Chrome: triggers the native install prompt. No-op otherwise. */
   handleInstall: () => Promise<void>
   /** Stores a dismissal timestamp; banner won't reappear for 7 days */
   handleDismiss: () => void
 }
 
-// localStorage key helpers — scoped per barber slug so each shop's
-// banner state is tracked independently on shared devices
 const dismissedKey = (slug: string) => `barberboost_install_dismissed_${slug}`
 const installedKey = (slug: string) => `barberboost_install_installed_${slug}`
 
@@ -33,38 +33,36 @@ const DISMISS_TTL_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
 /**
  * usePwaInstallPrompt — Personal Booking App Shortcut
  *
- * Encapsulates the full Android + iOS install prompt lifecycle:
+ * Shows the install banner on any mobile device:
  *
- *   Android Chrome / Edge / Samsung Internet:
- *     1. Captures `beforeinstallprompt` and suppresses the browser mini-infobar
- *     2. Sets canInstall = true → banner is shown
- *     3. handleInstall() triggers the native prompt dialog
- *     4. On 'accepted', marks as installed in localStorage
+ *   iOS (any browser — Safari, Chrome, Firefox):
+ *     Sets isIos = true → banner shows manual Share → Add to Home Screen steps.
+ *     All iOS browsers support this flow via the system share sheet.
  *
- *   iOS Safari:
- *     1. Detects iOS + Safari user agent (no automatic prompt available)
- *     2. Sets isIos = true → banner is shown with manual instructions
- *     3. handleInstall() is a no-op (the IosInstallModal handles the UX)
+ *   Android Chrome (beforeinstallprompt fires):
+ *     Sets canInstall = true → banner triggers the native install dialog.
  *
- *   Suppression rules (banner will NOT show if):
- *     - Already running in standalone/installed mode
- *     - User previously installed (localStorage installed key present)
- *     - User dismissed within the last 7 days
+ *   Android (no beforeinstallprompt — first visit, non-Chrome, criteria not yet met):
+ *     Sets isAndroid = true → banner shows manual browser menu instructions.
+ *     If beforeinstallprompt fires later (second visit), canInstall upgrades to true.
+ *
+ *   Suppression (banner will NOT show if):
+ *     - Already running as installed standalone PWA
+ *     - Previously installed (localStorage key present)
+ *     - Dismissed within the last 7 days
  */
 export function usePwaInstallPrompt(shopSlug: string): UsePwaInstallPromptReturn {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [canInstall,   setCanInstall]   = useState(false)
   const [isIos,        setIsIos]        = useState(false)
+  const [isAndroid,    setIsAndroid]    = useState(false)
   const [isStandalone, setIsStandalone] = useState(false)
   const [showBanner,   setShowBanner]   = useState(false)
 
   useEffect(() => {
     // ── 1. Standalone detection ───────────────────────────────────────────
-    // Both Android PWAs and iOS home screen apps run in standalone mode.
-    // If we're already installed, there's nothing to prompt.
     const standalone =
       window.matchMedia('(display-mode: standalone)').matches ||
-      // iOS-specific property (non-standard but widely used)
       (window.navigator as Navigator & { standalone?: boolean }).standalone === true
 
     setIsStandalone(standalone)
@@ -77,33 +75,25 @@ export function usePwaInstallPrompt(shopSlug: string): UsePwaInstallPromptReturn
     if (dismissedAt) {
       const elapsed = Date.now() - parseInt(dismissedAt, 10)
       if (elapsed < DISMISS_TTL_MS) return
-      // 7-day cooldown has passed — clear the flag so the banner can reappear
       localStorage.removeItem(dismissedKey(shopSlug))
     }
 
-    // ── 3. iOS Safari detection ───────────────────────────────────────────
-    // iOS devices running Safari (not Chrome/Firefox wrappers) need the
-    // manual "Share → Add to Home Screen" flow.
-    const ua        = navigator.userAgent
-    const isIosUA   = /iphone|ipad|ipod/i.test(ua)
-    // Exclude Chrome for iOS (CriOS), Firefox for iOS (FxiOS), etc.
-    const isSafari  = /safari/i.test(ua) && !/chrome|crios|fxios|opios|edgios/i.test(ua)
-
-    if (isIosUA && isSafari) {
+    // ── 3. iOS detection (any iOS browser) ───────────────────────────────
+    // All iOS browsers — Safari, Chrome (CriOS), Firefox (FxiOS), etc. —
+    // support the Share → Add to Home Screen manual flow.
+    const ua = navigator.userAgent
+    if (/iphone|ipad|ipod/i.test(ua)) {
       setIsIos(true)
       setShowBanner(true)
       return
     }
 
-    // ── 4. Android / Chrome install prompt ───────────────────────────────
-    // `beforeinstallprompt` fires when the browser determines the page meets
-    // PWA installability criteria (HTTPS + manifest + service worker with
-    // fetch handler). Calling preventDefault() suppresses the browser's own
-    // mini-infobar so we can show our branded banner instead.
-    //
-    // On return visits Chrome fires this event very early — before React's
-    // useEffect runs. An inline script in the page captures it and stores it
-    // on window.__pwaInstallPrompt so we can pick it up here on mount.
+    // ── 4. Android ────────────────────────────────────────────────────────
+    const isAndroidUA = /android/i.test(ua)
+
+    // Check if beforeinstallprompt was captured before React loaded.
+    // An inline script at the top of the booking page stores the event on
+    // window.__pwaInstallPrompt to avoid the race condition on return visits.
     type WinWithPrompt = Window & { __pwaInstallPrompt?: BeforeInstallPromptEvent }
     const win = window as WinWithPrompt
     if (win.__pwaInstallPrompt) {
@@ -111,22 +101,33 @@ export function usePwaInstallPrompt(shopSlug: string): UsePwaInstallPromptReturn
       delete win.__pwaInstallPrompt
       setDeferredPrompt(early)
       setCanInstall(true)
+      if (isAndroidUA) setIsAndroid(true)
       setShowBanner(true)
       return
     }
 
+    // Listen for the prompt firing after React mounts.
     const handleBeforeInstall = (event: Event) => {
       event.preventDefault()
       setDeferredPrompt(event as BeforeInstallPromptEvent)
       setCanInstall(true)
       setShowBanner(true)
     }
-
     window.addEventListener('beforeinstallprompt', handleBeforeInstall)
+
+    // On Android, show the banner immediately even if beforeinstallprompt
+    // hasn't fired (first visit, non-Chrome, or criteria not yet met).
+    // The banner button shows manual "browser menu → Add to Home Screen"
+    // instructions in that case, upgrading to the native dialog when/if
+    // the event fires later.
+    if (isAndroidUA) {
+      setIsAndroid(true)
+      setShowBanner(true)
+    }
+
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall)
   }, [shopSlug])
 
-  // ── handleInstall ─────────────────────────────────────────────────────
   const handleInstall = useCallback(async () => {
     if (!deferredPrompt) return
     await deferredPrompt.prompt()
@@ -138,11 +139,10 @@ export function usePwaInstallPrompt(shopSlug: string): UsePwaInstallPromptReturn
     setShowBanner(false)
   }, [deferredPrompt, shopSlug])
 
-  // ── handleDismiss ─────────────────────────────────────────────────────
   const handleDismiss = useCallback(() => {
     localStorage.setItem(dismissedKey(shopSlug), String(Date.now()))
     setShowBanner(false)
   }, [shopSlug])
 
-  return { canInstall, isIos, isStandalone, showBanner, handleInstall, handleDismiss }
+  return { canInstall, isIos, isAndroid, isStandalone, showBanner, handleInstall, handleDismiss }
 }

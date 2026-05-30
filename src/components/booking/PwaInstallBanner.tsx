@@ -12,64 +12,58 @@ interface PwaInstallBannerProps {
 }
 
 /**
- * PwaInstallBanner — Personal Booking App Shortcut
+ * PwaInstallBanner — "Save to Phone" shortcut
  *
- * Premium Pro/Empire feature. Renders a branded "Save to Phone" banner at the
- * bottom of the booking page, above the sticky "Book an Appointment" bar.
+ * Visible on any mobile device (iOS or Android) unless the user is already
+ * running the app in standalone mode or has dismissed within 7 days.
  *
- * Platform behaviour:
- *   Android (Chrome / Edge / Samsung Internet):
- *     Shows banner → user taps "Save to Phone" → native install dialog appears.
+ *   Android Chrome (beforeinstallprompt fired):
+ *     "Save" button triggers the native install dialog.
  *
- *   iOS Safari:
- *     Shows banner → user taps "Save to Phone" → IosInstallModal with step-by-
- *     step Share → Add to Home Screen instructions slides up.
+ *   Android (no native prompt — first visit or non-Chrome browser):
+ *     "Save" button shows step-by-step browser menu instructions.
  *
- *   Desktop / unsupported browsers:
- *     Banner is hidden entirely via `sm:hidden` — the feature is mobile-only.
+ *   iOS (any browser — Safari, Chrome, Firefox):
+ *     "Save" button shows Share → Add to Home Screen instructions.
  *
- *   Already installed / dismissed:
- *     usePwaInstallPrompt handles suppression; this component renders nothing.
+ *   Desktop: hidden via sm:hidden — this feature is mobile-only.
  */
 export function PwaInstallBanner({ shopSlug, pwa }: PwaInstallBannerProps) {
   const {
     canInstall,
     isIos,
+    isAndroid,
     showBanner,
     handleInstall,
     handleDismiss,
   } = usePwaInstallPrompt(shopSlug)
 
-  const [iosModalOpen, setIosModalOpen] = useState(false)
+  const [modalOpen,    setModalOpen]    = useState(false)
+  const [modalPlatform, setModalPlatform] = useState<'ios' | 'android'>('ios')
 
-  // Don't render on desktop or when there's nothing to show
   if (!showBanner) return null
-  // Must be either an Android prompt or an iOS device
-  if (!canInstall && !isIos) return null
+  if (!canInstall && !isIos && !isAndroid) return null
 
   function handleSaveClick() {
     if (isIos) {
-      setIosModalOpen(true)
-    } else {
+      setModalPlatform('ios')
+      setModalOpen(true)
+    } else if (canInstall) {
       handleInstall()
+    } else {
+      // Android without native prompt — show browser menu instructions
+      setModalPlatform('android')
+      setModalOpen(true)
     }
   }
 
-  function handleIosModalClose() {
-    setIosModalOpen(false)
-    // Treat modal open as engagement — dismiss the banner once user has seen instructions
+  function handleModalClose() {
+    setModalOpen(false)
     handleDismiss()
   }
 
   return (
     <>
-      {/*
-       * Banner — fixed above the "Book an Appointment" sticky bar (bottom-[72px]).
-       * Hidden on sm+ (tablet/desktop) because the feature targets mobile only.
-       *
-       * z-index 39 keeps it below the existing z-40 "Book Now" bar and any
-       * modals/drawers that sit at z-50+.
-       */}
       <div
         className="sm:hidden fixed bottom-[72px] inset-x-0 z-[39] px-3 pb-1"
         role="complementary"
@@ -78,9 +72,9 @@ export function PwaInstallBanner({ shopSlug, pwa }: PwaInstallBannerProps) {
         <div
           className="flex items-center gap-3 rounded-2xl px-4 py-3 shadow-2xl border"
           style={{
-            background:   '#111111',
-            borderColor:  `${pwa.accentColor}30`,
-            boxShadow:    `0 -4px 32px rgba(0,0,0,0.6), 0 0 0 1px ${pwa.accentColor}18`,
+            background:  '#111111',
+            borderColor: `${pwa.accentColor}30`,
+            boxShadow:   `0 -4px 32px rgba(0,0,0,0.6), 0 0 0 1px ${pwa.accentColor}18`,
           }}
         >
           {/* Shop icon */}
@@ -134,7 +128,6 @@ export function PwaInstallBanner({ shopSlug, pwa }: PwaInstallBannerProps) {
           </button>
         </div>
 
-        {/* "Not now" text link — extra escape hatch below the banner */}
         <p className="text-center mt-1.5">
           <button
             type="button"
@@ -146,16 +139,14 @@ export function PwaInstallBanner({ shopSlug, pwa }: PwaInstallBannerProps) {
         </p>
       </div>
 
-      {/* iOS manual instructions modal */}
-      {isIos && (
-        <IosInstallModal
-          shopName={pwa.appName}
-          logoUrl={pwa.appleTouchIcon !== '/icon.png' ? pwa.appleTouchIcon : null}
-          accentColor={pwa.accentColor}
-          open={iosModalOpen}
-          onClose={handleIosModalClose}
-        />
-      )}
+      <IosInstallModal
+        shopName={pwa.appName}
+        logoUrl={pwa.appleTouchIcon !== '/icon.png' ? pwa.appleTouchIcon : null}
+        accentColor={pwa.accentColor}
+        platform={modalPlatform}
+        open={modalOpen}
+        onClose={handleModalClose}
+      />
     </>
   )
 }

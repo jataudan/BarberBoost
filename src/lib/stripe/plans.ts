@@ -21,7 +21,7 @@ export const PLANS = {
       multi_location: false,
       api_access: false,
       priority_support: false,
-      pwa_shortcut: false,
+      pwa_shortcut: true,
     },
     features: [
       '30 bookings/month',
@@ -63,7 +63,7 @@ export const PLANS = {
       multi_location: false,
       api_access: false,
       priority_support: false,
-      pwa_shortcut: false,
+      pwa_shortcut: true,
     },
     features: [
       '150 bookings/month',
