@@ -100,6 +100,21 @@ export function usePwaInstallPrompt(shopSlug: string): UsePwaInstallPromptReturn
     // PWA installability criteria (HTTPS + manifest + service worker with
     // fetch handler). Calling preventDefault() suppresses the browser's own
     // mini-infobar so we can show our branded banner instead.
+    //
+    // On return visits Chrome fires this event very early — before React's
+    // useEffect runs. An inline script in the page captures it and stores it
+    // on window.__pwaInstallPrompt so we can pick it up here on mount.
+    type WinWithPrompt = Window & { __pwaInstallPrompt?: BeforeInstallPromptEvent }
+    const win = window as WinWithPrompt
+    if (win.__pwaInstallPrompt) {
+      const early = win.__pwaInstallPrompt
+      delete win.__pwaInstallPrompt
+      setDeferredPrompt(early)
+      setCanInstall(true)
+      setShowBanner(true)
+      return
+    }
+
     const handleBeforeInstall = (event: Event) => {
       event.preventDefault()
       setDeferredPrompt(event as BeforeInstallPromptEvent)

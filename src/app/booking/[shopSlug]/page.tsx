@@ -298,6 +298,10 @@ export default async function PublicBookingPage({ params }: Props) {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white pb-20 sm:pb-0">
+      {/* Early capture: beforeinstallprompt fires before React useEffect on return visits.
+          This inline script runs during HTML parsing and stores the event so the hook
+          can pick it up synchronously on mount. */}
+      <script dangerouslySetInnerHTML={{ __html: `window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__pwaInstallPrompt=e;});` }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       {/* ── 1. STICKY HEADER ─────────────────────────────────────── */}
