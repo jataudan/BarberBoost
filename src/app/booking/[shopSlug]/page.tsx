@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import type { Metadata, Viewport } from 'next'
 import { buildPwaConfig } from '@/lib/pwa/manifest'
@@ -167,6 +167,11 @@ export default async function PublicBookingPage({ params }: Props) {
 
   if (!shopRaw) notFound()
 
+  // Service role client bypasses the owner-scoped RLS on subscriptions —
+  // the booking page is public (no auth.uid()) so the anon client always
+  // gets zero rows back, making every shop look like it's on the free plan.
+  const serviceSupabase = await createServiceClient()
+
   const [svcRes, stfRes, subRes, revRes, stylesRes] = await Promise.all([
     supabase
       .from('services')
@@ -183,7 +188,7 @@ export default async function PublicBookingPage({ params }: Props) {
       .eq('is_active', true)
       .order('name'),
 
-    supabase
+    serviceSupabase
       .from('subscriptions')
       .select('plan')
       .eq('owner_id', shopRaw.owner_id)
