@@ -24,6 +24,17 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        // Service worker must never be served from the browser's HTTP cache.
+        // If it were cached, users would keep running the old SW even after a
+        // deployment that ships a new one, breaking the "Save to Phone" feature
+        // for existing visitors until their cache expires.
+        source: '/sw.js',
+        headers: [
+          { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+          { key: 'Service-Worker-Allowed', value: '/' },
+        ],
+      },
+      {
         source: '/(.*)',
         headers: [
           { key: 'X-Content-Type-Options',    value: 'nosniff' },

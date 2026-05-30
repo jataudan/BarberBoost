@@ -63,6 +63,15 @@ export interface Shop {
   admin_status:         AdminStatus
   created_at:           string
   updated_at:           string
+  // PWA Personal Booking App Shortcut fields (Pro/Empire)
+  // These columns are added by the Supabase migration in src/lib/pwa/manifest.ts.
+  // All are optional so existing code compiles without the migration applied.
+  pwa_enabled?:           boolean | null
+  pwa_theme_color?:       string  | null
+  pwa_accent_color?:      string  | null
+  pwa_icon_192?:          string  | null
+  pwa_icon_512?:          string  | null
+  pwa_apple_touch_icon?:  string  | null
 }
 
 export interface Subscription {

@@ -1,6 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
+import { buildPwaConfig } from '@/lib/pwa/manifest'
+import { PLANS } from '@/lib/stripe/plans'
+import { PwaInstallBanner } from '@/components/booking/PwaInstallBanner'
+import { ServiceWorkerRegistrar } from '@/components/booking/ServiceWorkerRegistrar'
 import { MapPin, Phone, CalendarCheck, MessageCircle, Navigation, Star } from 'lucide-react'
 import { getPreset, HERO_PRESETS } from '@/lib/hero-presets'
 import {
@@ -95,7 +99,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const { data: shop } = await supabase
     .from('shops')
-    .select('name, description, address, city, postcode')
+    .select('name, description, address, city, postcode, logo_url, pwa_accent_color, pwa_apple_touch_icon')
     .eq('slug', shopSlug)
     .single()
 
@@ -106,10 +110,46 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const desc     = shop.description
     ?? `Book your appointment at ${shop.name} online. Fast, easy, no account required.`
 
+  const pwa          = buildPwaConfig({ name: shop.name, slug: shopSlug, logo_url: shop.logo_url ?? null })
+  const touchIconUrl = shop.pwa_apple_touch_icon ?? shop.logo_url ?? '/icon.png'
+
   return {
     title,
     description: desc,
     openGraph: { title, description: desc, type: 'website' },
+    // PWA manifest link — each barber gets their own branded manifest
+    manifest: `/manifest/${shopSlug}`,
+    // iOS home screen meta
+    appleWebApp: {
+      capable:         true,
+      title:           pwa.shortName,
+      statusBarStyle:  'black',
+    },
+    icons: {
+      apple: [{ url: touchIconUrl, sizes: '180x180', type: 'image/png' }],
+    },
+  }
+}
+
+/**
+ * generateViewport — sets the browser toolbar colour to each shop's theme.
+ * In Next.js 15+ themeColor lives here, not in generateMetadata.
+ */
+export async function generateViewport({ params }: Props): Promise<Viewport> {
+  const { shopSlug } = await params
+  const supabase     = await createClient()
+
+  const { data: shop } = await supabase
+    .from('shops')
+    .select('pwa_theme_color')
+    .eq('slug', shopSlug)
+    .single()
+
+  return {
+    themeColor:    shop?.pwa_theme_color ?? '#0d0d0d',
+    width:         'device-width',
+    initialScale:  1,
+    maximumScale:  1,
   }
 }
 
@@ -121,7 +161,7 @@ export default async function PublicBookingPage({ params }: Props) {
 
   const { data: shopRaw } = await supabase
     .from('shops')
-    .select('id, owner_id, name, slug, logo_url, cover_url, description, phone, address, city, postcode, currency, cancellation_hours, no_show_fee, opening_hours, timezone')
+    .select('id, owner_id, name, slug, logo_url, cover_url, description, phone, address, city, postcode, currency, cancellation_hours, no_show_fee, opening_hours, timezone, pwa_enabled, pwa_theme_color, pwa_accent_color, pwa_icon_192, pwa_icon_512, pwa_apple_touch_icon')
     .eq('slug', shopSlug)
     .single()
 
@@ -175,6 +215,20 @@ export default async function PublicBookingPage({ params }: Props) {
   const plan       = subRes.data?.plan ?? 'free'
   const isFreePlan = plan === 'free'
   const reviews    = revRes.data ?? []
+
+  // PWA Personal Booking App Shortcut — Pro/Empire feature
+  const pwaEnabled = PLANS[plan as keyof typeof PLANS].limits.pwa_shortcut === true
+  const pwaConfig  = buildPwaConfig({
+    name:                shopRaw.name,
+    slug:                shopSlug,
+    logo_url:            shopRaw.logo_url            ?? null,
+    pwa_enabled:         shopRaw.pwa_enabled         ?? null,
+    pwa_theme_color:     shopRaw.pwa_theme_color     ?? null,
+    pwa_accent_color:    shopRaw.pwa_accent_color    ?? null,
+    pwa_icon_192:        shopRaw.pwa_icon_192        ?? null,
+    pwa_icon_512:        shopRaw.pwa_icon_512        ?? null,
+    pwa_apple_touch_icon: shopRaw.pwa_apple_touch_icon ?? null,
+  })
 
   const shop: PublicShop = {
     id:                 shopRaw.id,
@@ -494,6 +548,16 @@ export default async function PublicBookingPage({ params }: Props) {
           Book an Appointment
         </a>
       </div>
+
+      {/* ── 9. PWA "SAVE TO PHONE" BANNER (Pro/Empire only) ──────── */}
+      {/* Sits above the Book Now bar (bottom-[72px]) on mobile only. */}
+      {/* ServiceWorkerRegistrar is required for Android's beforeinstallprompt. */}
+      {pwaEnabled && (
+        <>
+          <ServiceWorkerRegistrar />
+          <PwaInstallBanner shopSlug={shopSlug} pwa={pwaConfig} />
+        </>
+      )}
     </div>
   )
 }
