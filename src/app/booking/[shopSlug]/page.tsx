@@ -188,7 +188,9 @@ export default async function PublicBookingPage({ params }: Props) {
       .select('plan')
       .eq('owner_id', shopRaw.owner_id)
       .in('status', ['active', 'trialing'])
-      .single(),
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
 
     supabase
       .from('reviews')
@@ -297,7 +299,7 @@ export default async function PublicBookingPage({ params }: Props) {
   const currencyFmt = new Intl.NumberFormat('en-GB', { style: 'currency', currency: shop.currency, maximumFractionDigits: 0 })
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white pb-20 sm:pb-0">
+    <div className="min-h-screen bg-[#0a0a0a] text-white pb-20 sm:pb-0" data-pwa-plan={plan} data-pwa-enabled={String(pwaEnabled)}>
       {/* Early capture: beforeinstallprompt fires before React useEffect on return visits.
           This inline script runs during HTML parsing and stores the event so the hook
           can pick it up synchronously on mount. */}
