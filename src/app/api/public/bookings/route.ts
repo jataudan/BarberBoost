@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
   // ── Verify staff belongs to shop and is active ───────────────────────────
   const { data: staff } = await supabase
     .from('staff')
-    .select('id, name, email, phone, is_active')
+    .select('id, name, is_active')
     .eq('id', staff_id)
     .eq('shop_id', shop_id)
     .eq('is_active', true)
@@ -191,6 +191,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: insertError?.message ?? 'Failed to create booking' }, { status: 500 })
   }
 
+  // ── Fetch staff contact details via service client (bypasses RLS) ─────────
+  // The anon client cannot read staff email/phone — RLS restricts those to
+  // authenticated owners only. We use the service role here so notifications
+  // are reliably sent regardless of RLS policy configuration.
+  const { data: staffContact } = await serviceSupabase
+    .from('staff')
+    .select('email, phone')
+    .eq('id', staff_id)
+    .single()
+
+  const staffEmail = staffContact?.email ?? null
+  const staffPhone = staffContact?.phone ?? null
+
   // ── Fetch style titles for email (if styles were selected) ──────────────
   let selectedStyleTitles: string[] | undefined
   if (selected_style_ids && selected_style_ids.length > 0) {
@@ -242,7 +255,6 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Email to barber ───────────────────────────────────────────────────────
-  const staffEmail = (staff as { email?: string | null }).email ?? null
   if (staffEmail) {
     try {
       const barberTmpl = barberBookingAlert({
@@ -268,7 +280,6 @@ export async function POST(request: NextRequest) {
   }
 
   // ── WhatsApp to barber ────────────────────────────────────────────────────
-  const staffPhone = (staff as { phone?: string | null }).phone ?? null
   if (staffPhone) {
     try {
       const barberMsg = buildBarberBookingText({
