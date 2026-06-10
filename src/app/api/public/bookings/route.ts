@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { PLANS } from '@/lib/stripe/plans'
 import type { PlanId } from '@/lib/stripe/plans'
-import { bookingConfirmation, type BookingEmailData } from '@/lib/email/templates'
+import { bookingConfirmation, barberBookingAlert, type BookingEmailData } from '@/lib/email/templates'
 import { format, parseISO } from 'date-fns'
 import { rateLimit } from '@/lib/rate-limit'
 import { sendWhatsApp, buildBarberBookingText } from '@/lib/whatsapp'
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
   // ── Verify staff belongs to shop and is active ───────────────────────────
   const { data: staff } = await supabase
     .from('staff')
-    .select('id, name, phone, is_active')
+    .select('id, name, email, phone, is_active')
     .eq('id', staff_id)
     .eq('shop_id', shop_id)
     .eq('is_active', true)
@@ -201,8 +201,12 @@ export async function POST(request: NextRequest) {
     selectedStyleTitles = (styleRows ?? []).map(s => s.title as string)
   }
 
-  // ── Send confirmation email ───────────────────────────────────────────────
-  const appUrl    = process.env.NEXT_PUBLIC_APP_URL ?? 'https://barberboost.app'
+  // ── Shared notification values ────────────────────────────────────────────
+  const appUrl        = process.env.NEXT_PUBLIC_APP_URL ?? 'https://barberboost.app'
+  const bookingRef    = (booking.booking_ref as string | null) ?? booking.id.slice(0, 8).toUpperCase()
+  const formattedDate = format(parseISO(date), 'EEEE, d MMMM yyyy')
+  const formattedTime = fmtTime12h(start_time)
+
   const emailData: BookingEmailData = {
     clientName:      client_name.trim(),
     clientEmail:     client_email.trim(),
@@ -212,30 +216,58 @@ export async function POST(request: NextRequest) {
     shopWebsite:     null,
     serviceName:     service.name,
     staffName:       staff.name,
-    date:            format(parseISO(date), 'EEEE, d MMMM yyyy'),
-    startTime:       fmtTime12h(start_time),
+    date:            formattedDate,
+    startTime:       formattedTime,
     durationMinutes: service.duration_minutes,
     price:           service.price,
     currency:        shop.currency ?? 'GBP',
     bookingId:       booking.id,
-    bookingRef:           (booking.booking_ref as string | null) ?? booking.id.slice(0, 8).toUpperCase(),
-    bookingPageUrl:       `${appUrl}/booking/${(shop as { slug?: string }).slug ?? shop_id}`,
+    bookingRef,
+    bookingPageUrl:  `${appUrl}/booking/${(shop as { slug?: string }).slug ?? shop_id}`,
     selectedStyleTitles,
-    styleConfidence:      style_confidence,
+    styleConfidence: style_confidence,
   }
 
+  const { Resend: ResendClient } = await import('resend')
+  const resend = new ResendClient(process.env.RESEND_API_KEY)
+  const FROM   = process.env.RESEND_FROM_EMAIL ?? 'BarberBoost <noreply@barberboost.app>'
+
+  // ── Email to customer ─────────────────────────────────────────────────────
   try {
-    const { Resend: ResendClient } = await import('resend')
-    const resend = new ResendClient(process.env.RESEND_API_KEY)
-    const FROM   = process.env.RESEND_FROM_EMAIL ?? 'BarberBoost <noreply@barberboost.app>'
-    const tmpl   = bookingConfirmation(emailData)
+    const tmpl = bookingConfirmation(emailData)
     const { error: emailErr } = await resend.emails.send({ from: FROM, to: client_email.trim(), ...tmpl })
-    if (emailErr) console.error('[public/bookings] email error:', emailErr.message)
+    if (emailErr) console.error('[public/bookings] customer email error:', emailErr.message)
   } catch (err) {
-    console.error('[public/bookings] email exception:', err)
+    console.error('[public/bookings] customer email exception:', err)
   }
 
-  // ── WhatsApp notification to barber ──────────────────────────────────────
+  // ── Email to barber ───────────────────────────────────────────────────────
+  const staffEmail = (staff as { email?: string | null }).email ?? null
+  if (staffEmail) {
+    try {
+      const barberTmpl = barberBookingAlert({
+        barberName:      staff.name,
+        clientName:      client_name.trim(),
+        clientEmail:     client_email.trim(),
+        clientPhone:     client_phone ?? null,
+        serviceName:     service.name,
+        date:            formattedDate,
+        startTime:       formattedTime,
+        durationMinutes: service.duration_minutes,
+        price:           service.price,
+        currency:        shop.currency ?? 'GBP',
+        bookingRef,
+        shopName:        shop.name,
+        dashboardUrl:    `${appUrl}/bookings`,
+      })
+      const { error: barberEmailErr } = await resend.emails.send({ from: FROM, to: staffEmail, ...barberTmpl })
+      if (barberEmailErr) console.error('[public/bookings] barber email error:', barberEmailErr.message)
+    } catch (err) {
+      console.error('[public/bookings] barber email exception:', err)
+    }
+  }
+
+  // ── WhatsApp to barber ────────────────────────────────────────────────────
   const staffPhone = (staff as { phone?: string | null }).phone ?? null
   if (staffPhone) {
     try {
@@ -244,9 +276,9 @@ export async function POST(request: NextRequest) {
         clientName:  client_name.trim(),
         clientPhone: client_phone ?? null,
         serviceName: service.name,
-        date:        format(parseISO(date), 'EEEE, d MMMM yyyy'),
-        startTime:   fmtTime12h(start_time),
-        bookingRef:  (booking.booking_ref as string | null) ?? booking.id.slice(0, 8).toUpperCase(),
+        date:        formattedDate,
+        startTime:   formattedTime,
+        bookingRef,
       })
       await sendWhatsApp(staffPhone, barberMsg)
     } catch (err) {

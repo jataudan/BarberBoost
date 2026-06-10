@@ -623,7 +623,83 @@ export function confirmationEmail(data: ConfirmationEmailData) {
   return { subject, html: emailShell(content, 'BarberBoost'), text }
 }
 
-// ── 10. Campaign email ────────────────────────────────────────────────────
+// ── 10. Barber new-booking alert ──────────────────────────────────────────
+
+export interface BarberBookingAlertData {
+  barberName:      string
+  clientName:      string
+  clientEmail:     string
+  clientPhone:     string | null
+  serviceName:     string
+  date:            string
+  startTime:       string
+  durationMinutes: number
+  price:           number
+  currency:        string
+  bookingRef:      string
+  shopName:        string
+  dashboardUrl:    string
+}
+
+export function barberBookingAlert(data: BarberBookingAlertData) {
+  const formatted = new Intl.NumberFormat('en-GB', { style: 'currency', currency: data.currency }).format(data.price)
+
+  const content = `
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="display:inline-block;width:48px;height:48px;background:rgba(201,168,76,0.12);border-radius:50%;border:1px solid rgba(201,168,76,0.25);line-height:48px;font-size:24px;margin-bottom:12px;">✂️</div>
+      <h1 style="margin:0;font-size:22px;font-weight:700;color:${TEXT};letter-spacing:0.04em;">New Booking</h1>
+      <p style="margin:8px 0 0;font-size:14px;color:${MUTED};">Hey ${esc(data.barberName)}, you have a new appointment!</p>
+    </div>
+
+    <div style="background:#0f0f0f;border:1px solid ${BORDER};border-radius:10px;padding:16px;text-align:center;margin-bottom:24px;">
+      <p style="margin:0;font-size:11px;color:${MUTED};letter-spacing:0.1em;text-transform:uppercase;">Booking Reference</p>
+      <p style="margin:6px 0 0;font-size:24px;font-weight:700;color:${GOLD};font-family:'Courier New',Courier,monospace;letter-spacing:0.12em;">${esc(data.bookingRef)}</p>
+    </div>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
+      ${detailRow('Client',   esc(data.clientName))}
+      ${detailRow('Email',    `<a href="mailto:${esc(data.clientEmail)}" style="color:${GOLD};text-decoration:none;">${esc(data.clientEmail)}</a>`)}
+      ${data.clientPhone ? detailRow('Phone', `<a href="tel:${esc(data.clientPhone)}" style="color:${GOLD};text-decoration:none;">${esc(data.clientPhone)}</a>`) : ''}
+      ${detailRow('Service',  esc(data.serviceName))}
+      ${detailRow('Date',     data.date)}
+      ${detailRow('Time',     data.startTime)}
+      ${detailRow('Duration', `${data.durationMinutes} min`)}
+      ${detailRow('Value',    formatted)}
+    </table>
+
+    <div style="text-align:center;">
+      ${ctaButton('VIEW IN DASHBOARD', data.dashboardUrl)}
+    </div>
+  `
+
+  const text = [
+    `NEW BOOKING — ${data.shopName}`,
+    '',
+    `Hey ${data.barberName},`,
+    '',
+    `You have a new appointment booked:`,
+    '',
+    `Booking Ref: ${data.bookingRef}`,
+    `Client:      ${data.clientName}`,
+    `Email:       ${data.clientEmail}`,
+    data.clientPhone ? `Phone:       ${data.clientPhone}` : '',
+    `Service:     ${data.serviceName}`,
+    `Date:        ${data.date}`,
+    `Time:        ${data.startTime}`,
+    `Duration:    ${data.durationMinutes} min`,
+    `Value:       ${formatted}`,
+    '',
+    `View in dashboard: ${data.dashboardUrl}`,
+  ].filter(l => l !== undefined).join('\n')
+
+  return {
+    subject: `New booking: ${data.clientName} — ${data.serviceName} on ${data.date}`,
+    html:    emailShell(content, data.shopName),
+    text,
+  }
+}
+
+// ── 11. Campaign email ────────────────────────────────────────────────────
 
 export interface CampaignEmailData {
   clientName: string
