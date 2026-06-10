@@ -220,6 +220,11 @@ export function BookingDetailModal({ booking, open, currency, onOpenChange, onSu
               {local.booking_ref && (
                 <span className="text-[10px] font-mono text-[#c9a84c]/80 hidden sm:block">{local.booking_ref}</span>
               )}
+              {local.status === 'pending' && (
+                <span className="text-[9px] font-bold tracking-wide px-2 py-1 rounded-full bg-amber-400 text-amber-900 animate-pulse">
+                  NEW
+                </span>
+              )}
               <span className={cn('text-[10px] font-semibold px-2.5 py-1 rounded-full border', STATUS_STYLES[local.status])}>
                 {STATUS_LABELS[local.status]}
               </span>

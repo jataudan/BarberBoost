@@ -194,7 +194,7 @@ export function BookingsWeekView({ shopId, weekStart, currency, onDayClick }: Bo
                     const count = (summary as Record<string, number>)[s]
                     if (!count) return null
                     return (
-                      <div key={s} className={cn('w-2 h-2 rounded-full flex-shrink-0', STATUS_BG[s])} title={`${count} ${s}`} />
+                      <div key={s} className={cn('w-2 h-2 rounded-full flex-shrink-0', STATUS_BG[s])} title={`${count} ${s === 'pending' ? 'unconfirmed' : s}`} />
                     )
                   })}
                 </div>
@@ -209,7 +209,9 @@ export function BookingsWeekView({ shopId, weekStart, currency, onDayClick }: Bo
         {(['confirmed', 'pending', 'completed', 'cancelled'] as BookingStatus[]).map((s) => (
           <div key={s} className="flex items-center gap-1.5">
             <div className={cn('w-2 h-2 rounded-full', STATUS_BG[s])} />
-            <span className="text-[10px] text-zinc-500 capitalize">{s}</span>
+            <span className="text-[10px] text-zinc-500">
+              {s === 'pending' ? 'Unconfirmed' : s.charAt(0).toUpperCase() + s.slice(1)}
+            </span>
           </div>
         ))}
       </div>

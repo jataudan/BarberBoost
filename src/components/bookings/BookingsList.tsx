@@ -232,7 +232,14 @@ export function BookingsList({ shopId, currency, dateFrom, dateTo, onEdit }: Boo
                         <p className="text-[10px] text-zinc-600 mt-0.5">{(() => { if (!booking.date) return '—'; const d = parseISO(booking.date); return isValid(d) ? format(d, 'd MMM') : '—'; })()}</p>
                       </td>
                       <td className="px-4 py-3">
-                        <p className="text-sm text-white truncate max-w-[130px]">{booking.client_name}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm text-white truncate max-w-[120px]">{booking.client_name}</p>
+                          {booking.status === 'pending' && (
+                            <span className="flex-shrink-0 px-1.5 py-0.5 text-[9px] font-bold tracking-wide rounded-full bg-amber-400 text-amber-900 animate-pulse">
+                              NEW
+                            </span>
+                          )}
+                        </div>
                         {booking.booking_ref
                           ? <p className="text-[10px] font-mono text-[#c9a84c]/70 mt-0.5">{booking.booking_ref}</p>
                           : booking.client_email && (

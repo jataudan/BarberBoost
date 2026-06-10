@@ -84,8 +84,11 @@ function BookingBlock({ booking, currency, onClick }: {
       aria-label={`${booking.client_name} — ${service?.name}`}
       onClick={onClick}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick() }}
-      className={cn('cal-booking group', isCancelled ? 'opacity-30' : '')}
+      className={cn('cal-booking group relative', isCancelled ? 'opacity-30' : '')}
     >
+      {booking.status === 'pending' && (
+        <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-400 animate-pulse z-10" aria-label="New booking" />
+      )}
       {height >= 22 && (
         <div className="px-1.5 py-1 overflow-hidden">
           <p className="cal-booking-text text-[10px] font-bold leading-tight truncate">
