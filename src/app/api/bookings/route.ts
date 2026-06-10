@@ -269,8 +269,8 @@ export async function PATCH(request: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Send email on cancellation
-  if (status === 'cancelled' && existing.client_email) {
+  // Send email when barber confirms or cancels
+  if ((status === 'confirmed' || status === 'cancelled') && existing.client_email) {
     const service = existing.service as { name: string; duration_minutes: number } | null
     const staff   = existing.staff   as { name: string } | null
     const emailData: BookingEmailData = {
@@ -290,7 +290,11 @@ export async function PATCH(request: NextRequest) {
       bookingId:       existing.id,
       bookingRef:      (existing.booking_ref as string | null) ?? existing.id.slice(0, 8).toUpperCase(),
     }
-    sendBookingEmail(bookingCancellation, existing.client_email, emailData)
+    sendBookingEmail(
+      status === 'confirmed' ? bookingConfirmation : bookingCancellation,
+      existing.client_email,
+      emailData
+    )
   }
 
   return NextResponse.json({ data: updated })

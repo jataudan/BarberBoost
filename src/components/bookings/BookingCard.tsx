@@ -16,13 +16,19 @@ const statusColors = {
   completed: 'border-l-zinc-500',
   cancelled: 'border-l-red-500',
 }
+const statusLabels: Record<string, string> = {
+  pending:   'Unconfirmed',
+  confirmed: 'Confirmed',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+}
 
 export function BookingCard({ clientName, service, startTime, barber, status }: BookingCardProps) {
   return (
     <div className={cn('bg-zinc-900 border border-zinc-800 border-l-4 rounded-xl p-4 space-y-2', statusColors[status])}>
       <div className="flex items-center justify-between">
         <p className="font-semibold text-white">{clientName}</p>
-        <span className="text-xs text-zinc-400 capitalize">{status}</span>
+        <span className="text-xs text-zinc-400">{statusLabels[status] ?? status}</span>
       </div>
       <p className="text-sm text-zinc-300">{service}</p>
       <div className="flex items-center gap-4 text-xs text-zinc-400">

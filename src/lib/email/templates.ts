@@ -154,7 +154,76 @@ export function bookingConfirmation(data: BookingEmailData) {
   }
 }
 
-// ── 2. Booking Reminder (24h before) ──────────────────────────────────────
+// ── 2. Booking Received (awaiting barber confirmation) ────────────────────
+export function bookingReceived(data: BookingEmailData) {
+  const formatted = new Intl.NumberFormat('en-GB', { style: 'currency', currency: data.currency }).format(data.price)
+
+  const content = `
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="display:inline-block;width:48px;height:48px;background:rgba(201,168,76,0.12);border-radius:50%;border:1px solid rgba(201,168,76,0.25);line-height:48px;font-size:24px;margin-bottom:12px;">📋</div>
+      <h1 style="margin:0;font-size:22px;font-weight:700;color:${TEXT};letter-spacing:0.04em;">Booking Received</h1>
+      <p style="margin:8px 0 0;font-size:14px;color:${MUTED};">Hi ${esc(data.clientName)}, your request is with the barber.</p>
+    </div>
+
+    <div style="background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.2);border-radius:10px;padding:14px 18px;margin-bottom:24px;">
+      <p style="margin:0;font-size:13px;color:${GOLD};line-height:1.6;">
+        Your booking is awaiting confirmation. You'll receive another email once <strong>${esc(data.staffName)}</strong> confirms your appointment.
+      </p>
+    </div>
+
+    <div style="background:#0f0f0f;border:1px solid ${BORDER};border-radius:10px;padding:16px;text-align:center;margin-bottom:24px;">
+      <p style="margin:0;font-size:11px;color:${MUTED};letter-spacing:0.1em;text-transform:uppercase;">Booking Reference</p>
+      <p style="margin:6px 0 0;font-size:24px;font-weight:700;color:${GOLD};font-family:'Courier New',Courier,monospace;letter-spacing:0.12em;">${data.bookingRef}</p>
+      <p style="margin:6px 0 0;font-size:11px;color:${MUTED};">Keep this reference handy</p>
+    </div>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
+      ${detailRow('Service', esc(data.serviceName))}
+      ${detailRow('Barber', esc(data.staffName))}
+      ${detailRow('Date', data.date)}
+      ${detailRow('Time', data.startTime)}
+      ${detailRow('Duration', `${data.durationMinutes} min`)}
+      ${detailRow('Total', formatted)}
+      ${data.shopAddress ? detailRow('Location', esc(data.shopAddress)) : ''}
+    </table>
+
+    <p style="margin-top:20px;font-size:13px;color:${MUTED};line-height:1.6;">
+      Need to cancel or have a question?
+      ${data.shopPhone ? `Call us on <a href="tel:${esc(data.shopPhone)}" style="color:${GOLD};text-decoration:none;">${esc(data.shopPhone)}</a>.` : 'Please contact us as soon as possible.'}
+    </p>
+  `
+
+  const text = [
+    `BOOKING RECEIVED — ${data.shopName}`,
+    '',
+    `Hi ${data.clientName},`,
+    '',
+    `Your booking request has been received and is awaiting confirmation from ${data.staffName}.`,
+    `You will receive a confirmation email once your appointment is approved.`,
+    '',
+    `Booking Reference: ${data.bookingRef}`,
+    `Service:  ${data.serviceName}`,
+    `Barber:   ${data.staffName}`,
+    `Date:     ${data.date}`,
+    `Time:     ${data.startTime}`,
+    `Duration: ${data.durationMinutes} min`,
+    `Total:    ${formatted}`,
+    data.shopAddress ? `Location: ${data.shopAddress}` : '',
+    '',
+    data.shopPhone ? `Questions? Call ${data.shopPhone}.` : '',
+    '',
+    `---`,
+    `This email was sent by ${data.shopName} via BarberBoost.`,
+  ].filter(l => l !== undefined).join('\n')
+
+  return {
+    subject: `Booking Received [${data.bookingRef}] — ${data.shopName}`,
+    html:    emailShell(content, data.shopName),
+    text,
+  }
+}
+
+// ── 3. Booking Reminder (24h before) ──────────────────────────────────────
 export function bookingReminder(data: BookingEmailData) {
   const content = `
     <div style="text-align:center;margin-bottom:28px;">

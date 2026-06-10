@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { PLANS } from '@/lib/stripe/plans'
 import type { PlanId } from '@/lib/stripe/plans'
-import { bookingConfirmation, barberBookingAlert, type BookingEmailData } from '@/lib/email/templates'
+import { bookingReceived, barberBookingAlert, type BookingEmailData } from '@/lib/email/templates'
 import { format, parseISO } from 'date-fns'
 import { rateLimit } from '@/lib/rate-limit'
 import { sendWhatsApp, buildBarberBookingText } from '@/lib/whatsapp'
@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
       price:           service.price,
       deposit_amount:  0,
       payment_method:  'cash',
-      status:          'confirmed',
+      status:          'pending',
       notes:               notes ?? null,
       source:              'online',
       is_paid:             false,
@@ -245,9 +245,9 @@ export async function POST(request: NextRequest) {
   const resend = new ResendClient(process.env.RESEND_API_KEY)
   const FROM   = process.env.RESEND_FROM_EMAIL ?? 'BarberBoost <noreply@barberboost.app>'
 
-  // ── Email to customer ─────────────────────────────────────────────────────
+  // ── Email to customer (booking received — awaiting barber confirmation) ───
   try {
-    const tmpl = bookingConfirmation(emailData)
+    const tmpl = bookingReceived(emailData)
     const { error: emailErr } = await resend.emails.send({ from: FROM, to: client_email.trim(), ...tmpl })
     if (emailErr) console.error('[public/bookings] customer email error:', emailErr.message)
   } catch (err) {

@@ -23,7 +23,7 @@ const STATUS_STYLES: Record<BookingStatus, string> = {
   no_show:   'bg-zinc-700/40 text-zinc-400 border-zinc-600/20',
 }
 const STATUS_LABELS: Record<BookingStatus, string> = {
-  pending:   'Pending',
+  pending:   'Unconfirmed',
   confirmed: 'Confirmed',
   completed: 'Completed',
   cancelled: 'Cancelled',

@@ -19,7 +19,7 @@ const STATUS_STYLES: Record<BookingStatus, string> = {
   no_show:   'bg-zinc-700/40 text-zinc-400 border-zinc-600/20',
 }
 const STATUS_LABELS: Record<BookingStatus, string> = {
-  pending:   'Pending',
+  pending:   'Unconfirmed',
   confirmed: 'Confirmed',
   completed: 'Completed',
   cancelled: 'Cancelled',
@@ -444,8 +444,8 @@ export function BookingDetailModal({ booking, open, currency, onOpenChange, onSu
                 {local.status === 'pending' && (
                   <button type="button" onClick={() => handleStatusAction('confirmed')} disabled={saving}
                     className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 rounded-xl transition-colors disabled:opacity-50">
-                    {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Clock className="w-3.5 h-3.5" />}
-                    Approve
+                    {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                    Confirm
                   </button>
                 )}
                 {local.status === 'confirmed' && (
