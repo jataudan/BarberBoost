@@ -5,6 +5,7 @@ import type { PlanId } from '@/lib/stripe/plans'
 import { bookingConfirmation, type BookingEmailData } from '@/lib/email/templates'
 import { format, parseISO } from 'date-fns'
 import { rateLimit } from '@/lib/rate-limit'
+import { sendWhatsApp, buildBarberBookingText } from '@/lib/whatsapp'
 
 function fmtTime12h(t: string): string {
   const [h, m] = t.split(':').map(Number)
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
   // ── Verify staff belongs to shop and is active ───────────────────────────
   const { data: staff } = await supabase
     .from('staff')
-    .select('id, name, is_active')
+    .select('id, name, phone, is_active')
     .eq('id', staff_id)
     .eq('shop_id', shop_id)
     .eq('is_active', true)
@@ -232,6 +233,25 @@ export async function POST(request: NextRequest) {
     if (emailErr) console.error('[public/bookings] email error:', emailErr.message)
   } catch (err) {
     console.error('[public/bookings] email exception:', err)
+  }
+
+  // ── WhatsApp notification to barber ──────────────────────────────────────
+  const staffPhone = (staff as { phone?: string | null }).phone ?? null
+  if (staffPhone) {
+    try {
+      const barberMsg = buildBarberBookingText({
+        barberName:  staff.name,
+        clientName:  client_name.trim(),
+        clientPhone: client_phone ?? null,
+        serviceName: service.name,
+        date:        format(parseISO(date), 'EEEE, d MMMM yyyy'),
+        startTime:   fmtTime12h(start_time),
+        bookingRef:  (booking.booking_ref as string | null) ?? booking.id.slice(0, 8).toUpperCase(),
+      })
+      await sendWhatsApp(staffPhone, barberMsg)
+    } catch (err) {
+      console.error('[public/bookings] barber WhatsApp exception:', err)
+    }
   }
 
   return NextResponse.json({

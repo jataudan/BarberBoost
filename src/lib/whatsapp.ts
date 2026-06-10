@@ -55,6 +55,29 @@ export async function sendWhatsApp(to: string, body: string): Promise<void> {
   }
 }
 
+export function buildBarberBookingText(data: {
+  barberName:  string
+  clientName:  string
+  clientPhone: string | null
+  serviceName: string
+  date:        string
+  startTime:   string
+  bookingRef:  string
+}): string {
+  const lines = [
+    `New booking, ${data.barberName}! ✂️`,
+    '',
+    `*${data.clientName}* has booked *${data.serviceName}*`,
+    `📅  ${data.date} at ${data.startTime}`,
+    `🔖  Ref: ${data.bookingRef}`,
+    '',
+    data.clientPhone
+      ? `Client contact: ${data.clientPhone}`
+      : 'No client phone number provided.',
+  ]
+  return lines.join('\n')
+}
+
 export function buildReminderText(data: {
   clientName:  string
   shopName:    string
