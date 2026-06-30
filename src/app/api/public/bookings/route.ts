@@ -201,8 +201,18 @@ export async function POST(request: NextRequest) {
     .eq('id', staff_id)
     .single()
 
-  const staffEmail = staffContact?.email ?? null
-  const staffPhone = staffContact?.phone ?? null
+  const staffEmail = staffContact?.email?.trim() || null
+  const staffPhone = staffContact?.phone?.trim() || null
+
+  // Fall back to the shop owner's login email when the barber has no email on
+  // their staff profile — otherwise the business gets no booking alert at all.
+  let ownerEmail: string | null = null
+  if (!staffEmail) {
+    const { data: ownerData, error: ownerErr } = await serviceSupabase.auth.admin.getUserById(shop.owner_id)
+    if (ownerErr) console.error('[public/bookings] owner lookup error:', ownerErr.message)
+    ownerEmail = ownerData?.user?.email ?? null
+  }
+  const barberNotifyEmail = staffEmail ?? ownerEmail
 
   // ── Fetch style titles for email (if styles were selected) ──────────────
   let selectedStyleTitles: string[] | undefined
@@ -254,8 +264,11 @@ export async function POST(request: NextRequest) {
     console.error('[public/bookings] customer email exception:', err)
   }
 
-  // ── Email to barber ───────────────────────────────────────────────────────
-  if (staffEmail) {
+  // ── Email to barber (or shop owner as fallback) ───────────────────────────
+  if (barberNotifyEmail) {
+    if (!staffEmail) {
+      console.warn(`[public/bookings] staff ${staff_id} has no email — sending booking alert to shop owner instead`)
+    }
     try {
       const barberTmpl = barberBookingAlert({
         barberName:      staff.name,
@@ -272,11 +285,13 @@ export async function POST(request: NextRequest) {
         shopName:        shop.name,
         dashboardUrl:    `${appUrl}/bookings`,
       })
-      const { error: barberEmailErr } = await resend.emails.send({ from: FROM, to: staffEmail, ...barberTmpl })
+      const { error: barberEmailErr } = await resend.emails.send({ from: FROM, to: barberNotifyEmail, ...barberTmpl })
       if (barberEmailErr) console.error('[public/bookings] barber email error:', barberEmailErr.message)
     } catch (err) {
       console.error('[public/bookings] barber email exception:', err)
     }
+  } else {
+    console.warn(`[public/bookings] no barber or owner email for staff ${staff_id} (shop ${shop_id}) — booking alert not sent`)
   }
 
   // ── WhatsApp to barber ────────────────────────────────────────────────────

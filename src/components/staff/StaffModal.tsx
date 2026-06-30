@@ -97,6 +97,7 @@ export function StaffModal({ shopId, open, onOpenChange, editStaff, onSuccess }:
   })
 
   const watchedColour    = watch('colour')
+  const watchedEmail     = watch('email')
   const watchedWH        = watch('working_hours')
   const watchedAvatarUrl = watch('avatar_url')
 
@@ -271,6 +272,9 @@ export function StaffModal({ shopId, open, onOpenChange, editStaff, onSuccess }:
                 </label>
                 <input id="staff-email" type="email" placeholder="james@shop.com" className={cn(INPUT, errors.email && 'border-red-500/50')} {...register('email')} />
                 {errors.email && <p className="text-xs text-red-400">{errors.email.message}</p>}
+                {!errors.email && !watchedEmail?.trim() && (
+                  <p className="text-xs text-amber-400/80">No email — this barber won&apos;t receive new-booking alerts (they&apos;ll go to the shop owner instead).</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <label htmlFor="staff-phone" className="flex items-center gap-1.5 text-xs font-medium text-zinc-400">
