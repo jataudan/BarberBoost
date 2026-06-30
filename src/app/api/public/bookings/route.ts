@@ -204,15 +204,26 @@ export async function POST(request: NextRequest) {
   const staffEmail = staffContact?.email?.trim() || null
   const staffPhone = staffContact?.phone?.trim() || null
 
-  // Fall back to the shop owner's login email when the barber has no email on
-  // their staff profile — otherwise the business gets no booking alert at all.
+  // Resolve the shop owner's login email as a delivery backstop, so a booking
+  // alert is never silently lost when a barber's mailbox is missing, filtered,
+  // or suppressed by the email provider.
   let ownerEmail: string | null = null
-  if (!staffEmail) {
+  {
     const { data: ownerData, error: ownerErr } = await serviceSupabase.auth.admin.getUserById(shop.owner_id)
     if (ownerErr) console.error('[public/bookings] owner lookup error:', ownerErr.message)
-    ownerEmail = ownerData?.user?.email ?? null
+    ownerEmail = ownerData?.user?.email?.trim() || null
   }
-  const barberNotifyEmail = staffEmail ?? ownerEmail
+
+  // Preferred recipient is the individual barber; the shop owner is added as a
+  // backstop (deduped, and skipped when the barber *is* the owner).
+  const alertRecipients: { email: string; role: 'barber' | 'owner' }[] = []
+  if (staffEmail) alertRecipients.push({ email: staffEmail, role: 'barber' })
+  if (ownerEmail && ownerEmail.toLowerCase() !== staffEmail?.toLowerCase()) {
+    alertRecipients.push({ email: ownerEmail, role: 'owner' })
+  }
+  if (!staffEmail) {
+    console.warn(`[public/bookings] staff ${staff_id} has no email — booking alert goes to the shop owner only`)
+  }
 
   // ── Fetch style titles for email (if styles were selected) ──────────────
   let selectedStyleTitles: string[] | undefined
@@ -264,31 +275,32 @@ export async function POST(request: NextRequest) {
     console.error('[public/bookings] customer email exception:', err)
   }
 
-  // ── Email to barber (or shop owner as fallback) ───────────────────────────
-  if (barberNotifyEmail) {
-    if (!staffEmail) {
-      console.warn(`[public/bookings] staff ${staff_id} has no email — sending booking alert to shop owner instead`)
-    }
-    try {
-      const barberTmpl = barberBookingAlert({
-        barberName:      staff.name,
-        clientName:      client_name.trim(),
-        clientEmail:     client_email.trim(),
-        clientPhone:     client_phone ?? null,
-        serviceName:     service.name,
-        date:            formattedDate,
-        startTime:       formattedTime,
-        durationMinutes: service.duration_minutes,
-        price:           service.price,
-        currency:        shop.currency ?? 'GBP',
-        bookingRef,
-        shopName:        shop.name,
-        dashboardUrl:    `${appUrl}/bookings`,
-      })
-      const { error: barberEmailErr } = await resend.emails.send({ from: FROM, to: barberNotifyEmail, ...barberTmpl })
-      if (barberEmailErr) console.error('[public/bookings] barber email error:', barberEmailErr.message)
-    } catch (err) {
-      console.error('[public/bookings] barber email exception:', err)
+  // ── Barber alert email (individual barber preferred; owner as backstop) ────
+  if (alertRecipients.length > 0) {
+    const barberTmpl = barberBookingAlert({
+      barberName:      staff.name,
+      clientName:      client_name.trim(),
+      clientEmail:     client_email.trim(),
+      clientPhone:     client_phone ?? null,
+      serviceName:     service.name,
+      date:            formattedDate,
+      startTime:       formattedTime,
+      durationMinutes: service.duration_minutes,
+      price:           service.price,
+      currency:        shop.currency ?? 'GBP',
+      bookingRef,
+      shopName:        shop.name,
+      dashboardUrl:    `${appUrl}/bookings`,
+    })
+    // Separate sends (not a single multi-recipient email) so the owner backstop
+    // still arrives even if the barber's address bounces or is suppressed.
+    for (const recipient of alertRecipients) {
+      try {
+        const { error: alertErr } = await resend.emails.send({ from: FROM, to: recipient.email, ...barberTmpl })
+        if (alertErr) console.error(`[public/bookings] ${recipient.role} alert error:`, alertErr.message)
+      } catch (err) {
+        console.error(`[public/bookings] ${recipient.role} alert exception:`, err)
+      }
     }
   } else {
     console.warn(`[public/bookings] no barber or owner email for staff ${staff_id} (shop ${shop_id}) — booking alert not sent`)
