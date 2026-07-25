@@ -78,6 +78,47 @@ export function buildBarberBookingText(data: {
   return lines.join('\n')
 }
 
+export function buildBarberCancellationText(data: {
+  barberName:  string
+  clientName:  string
+  serviceName: string
+  date:        string
+  startTime:   string
+  bookingRef:  string
+}): string {
+  const lines = [
+    `Booking cancelled, ${data.barberName} ✕`,
+    '',
+    `*${data.clientName}* cancelled *${data.serviceName}*`,
+    `📅  Was ${data.date} at ${data.startTime}`,
+    `🔖  Ref: ${data.bookingRef}`,
+    '',
+    `This slot is now free again.`,
+  ]
+  return lines.join('\n')
+}
+
+export function buildBarberRescheduleText(data: {
+  barberName:   string
+  clientName:   string
+  serviceName:  string
+  oldDate:      string
+  oldStartTime: string
+  newDate:      string
+  newStartTime: string
+  bookingRef:   string
+}): string {
+  const lines = [
+    `Booking moved, ${data.barberName} 🔄`,
+    '',
+    `*${data.clientName}* rescheduled *${data.serviceName}*`,
+    `⛔  Was ${data.oldDate} at ${data.oldStartTime}`,
+    `✅  Now ${data.newDate} at ${data.newStartTime}`,
+    `🔖  Ref: ${data.bookingRef}`,
+  ]
+  return lines.join('\n')
+}
+
 export function buildReminderText(data: {
   clientName:  string
   shopName:    string

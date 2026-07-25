@@ -63,6 +63,25 @@ function ctaButton(text: string, href: string): string {
   return `<a href="${href}" style="display:inline-block;margin-top:24px;background:${GOLD};color:#000;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:0.06em;padding:12px 28px;border-radius:8px;">${text}</a>`
 }
 
+/**
+ * Two side-by-side self-service buttons (Reschedule = gold primary,
+ * Cancel = outlined secondary) for customer booking emails. Rendered only when
+ * both manage URLs are present; callers fall back to phone-contact copy.
+ */
+function manageButtons(rescheduleUrl: string, cancelUrl: string): string {
+  return `
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
+      <tr>
+        <td style="padding:4px;width:50%;" align="center">
+          <a href="${rescheduleUrl}" style="display:block;background:${GOLD};color:#000;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:0.04em;padding:12px 0;border-radius:8px;text-align:center;">Reschedule</a>
+        </td>
+        <td style="padding:4px;width:50%;" align="center">
+          <a href="${cancelUrl}" style="display:block;background:transparent;color:${TEXT};text-decoration:none;font-weight:700;font-size:13px;letter-spacing:0.04em;padding:11px 0;border:1px solid ${BORDER};border-radius:8px;text-align:center;">Cancel</a>
+        </td>
+      </tr>
+    </table>`
+}
+
 // ── Booking data shape used by all templates ──────────────────────────────
 export interface BookingEmailData {
   clientName: string
@@ -84,6 +103,8 @@ export interface BookingEmailData {
   bookingPageUrl?: string
   selectedStyleTitles?: string[]
   styleConfidence?: number
+  rescheduleUrl?: string   // customer self-service reschedule link
+  cancelUrl?: string       // customer self-service cancel link
 }
 
 // ── 1. Booking Confirmation ────────────────────────────────────────────────
@@ -120,9 +141,10 @@ export function bookingConfirmation(data: BookingEmailData) {
     </table>
 
     <p style="margin-top:24px;font-size:13px;color:${MUTED};line-height:1.6;">
-      Need to cancel or reschedule? Please contact us at least 24 hours in advance.
-      ${data.shopPhone ? `Call us on <a href="tel:${esc(data.shopPhone)}" style="color:${GOLD};text-decoration:none;">${esc(data.shopPhone)}</a>.` : ''}
+      Need to make a change? You can reschedule or cancel below${data.shopPhone ? `, or call us on <a href="tel:${esc(data.shopPhone)}" style="color:${GOLD};text-decoration:none;">${esc(data.shopPhone)}</a>` : ''}.
+      Please give us at least 24 hours' notice.
     </p>
+    ${data.rescheduleUrl && data.cancelUrl ? manageButtons(data.rescheduleUrl, data.cancelUrl) : ''}
   `
   const text = [
     `BOOKING CONFIRMED — ${data.shopName}`,
@@ -140,8 +162,10 @@ export function bookingConfirmation(data: BookingEmailData) {
     `Total:    ${formatted}`,
     data.shopAddress ? `Location: ${data.shopAddress}` : '',
     '',
-    `Need to cancel or reschedule? Please contact us at least 24 hours in advance.`,
-    data.shopPhone ? `Call us on ${data.shopPhone}.` : '',
+    `Need to make a change? Please give us at least 24 hours' notice.`,
+    data.rescheduleUrl ? `Reschedule: ${data.rescheduleUrl}` : '',
+    data.cancelUrl ? `Cancel:     ${data.cancelUrl}` : '',
+    data.shopPhone ? `Or call us on ${data.shopPhone}.` : '',
     '',
     `---`,
     `This email was sent by ${data.shopName} via BarberBoost.`,
@@ -188,9 +212,9 @@ export function bookingReceived(data: BookingEmailData) {
     </table>
 
     <p style="margin-top:20px;font-size:13px;color:${MUTED};line-height:1.6;">
-      Need to cancel or have a question?
-      ${data.shopPhone ? `Call us on <a href="tel:${esc(data.shopPhone)}" style="color:${GOLD};text-decoration:none;">${esc(data.shopPhone)}</a>.` : 'Please contact us as soon as possible.'}
+      Need to reschedule or cancel this request?${data.shopPhone ? ` Or call us on <a href="tel:${esc(data.shopPhone)}" style="color:${GOLD};text-decoration:none;">${esc(data.shopPhone)}</a>.` : ''}
     </p>
+    ${data.rescheduleUrl && data.cancelUrl ? manageButtons(data.rescheduleUrl, data.cancelUrl) : ''}
   `
 
   const text = [
@@ -210,7 +234,10 @@ export function bookingReceived(data: BookingEmailData) {
     `Total:    ${formatted}`,
     data.shopAddress ? `Location: ${data.shopAddress}` : '',
     '',
-    data.shopPhone ? `Questions? Call ${data.shopPhone}.` : '',
+    `Need to change this request?`,
+    data.rescheduleUrl ? `Reschedule: ${data.rescheduleUrl}` : '',
+    data.cancelUrl ? `Cancel:     ${data.cancelUrl}` : '',
+    data.shopPhone ? `Or call ${data.shopPhone}.` : '',
     '',
     `---`,
     `This email was sent by ${data.shopName} via BarberBoost.`,
@@ -870,6 +897,141 @@ export function subscriptionActivated(data: SubscriptionActivatedData) {
   return {
     subject: `Your ${data.plan} plan is now active`,
     html:    emailShell(content, 'BarberBoost'),
+    text,
+  }
+}
+
+// ── 13. Barber alert — customer cancelled their own booking ────────────────
+
+export interface BookingCancelledByCustomerData {
+  barberName:  string
+  clientName:  string
+  clientPhone: string | null
+  serviceName: string
+  date:        string        // formatted, when it was scheduled
+  startTime:   string        // formatted
+  bookingRef:  string
+  shopName:    string
+  dashboardUrl: string
+}
+
+export function bookingCancelledByCustomer(data: BookingCancelledByCustomerData) {
+  const RED = '#ef4444'
+  const content = `
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="display:inline-block;width:48px;height:48px;background:rgba(239,68,68,0.1);border-radius:50%;border:1px solid rgba(239,68,68,0.2);line-height:48px;font-size:22px;margin-bottom:12px;">✕</div>
+      <h1 style="margin:0;font-size:22px;font-weight:700;color:${TEXT};letter-spacing:0.04em;">Booking Cancelled</h1>
+      <p style="margin:8px 0 0;font-size:14px;color:${MUTED};">Hey ${esc(data.barberName)}, a client cancelled their appointment.</p>
+    </div>
+
+    <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:14px 18px;margin-bottom:24px;">
+      <p style="margin:0;font-size:13px;color:${RED};line-height:1.6;">
+        <strong>${esc(data.clientName)}</strong> cancelled their booking. This slot is now free again.
+      </p>
+    </div>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
+      ${detailRow('Reference', esc(data.bookingRef))}
+      ${detailRow('Client',    esc(data.clientName))}
+      ${data.clientPhone ? detailRow('Phone', `<a href="tel:${esc(data.clientPhone)}" style="color:${GOLD};text-decoration:none;">${esc(data.clientPhone)}</a>`) : ''}
+      ${detailRow('Service',   esc(data.serviceName))}
+      ${detailRow('Was scheduled', `${data.date} at ${data.startTime}`)}
+    </table>
+
+    <div style="text-align:center;">
+      ${ctaButton('VIEW IN DASHBOARD', data.dashboardUrl)}
+    </div>
+  `
+
+  const text = [
+    `BOOKING CANCELLED — ${data.shopName}`,
+    '',
+    `Hey ${data.barberName},`,
+    '',
+    `${data.clientName} cancelled their booking. This slot is now free again.`,
+    '',
+    `Reference:     ${data.bookingRef}`,
+    `Client:        ${data.clientName}`,
+    data.clientPhone ? `Phone:         ${data.clientPhone}` : '',
+    `Service:       ${data.serviceName}`,
+    `Was scheduled: ${data.date} at ${data.startTime}`,
+    '',
+    `View in dashboard: ${data.dashboardUrl}`,
+  ].filter(l => l !== undefined).join('\n')
+
+  return {
+    subject: `Cancelled: ${data.clientName} — ${data.serviceName} on ${data.date}`,
+    html:    emailShell(content, data.shopName),
+    text,
+  }
+}
+
+// ── 14. Barber alert — customer rescheduled their own booking ──────────────
+
+export interface BookingRescheduledByCustomerData {
+  barberName:  string
+  clientName:  string
+  clientPhone: string | null
+  serviceName: string
+  oldDate:     string        // formatted
+  oldStartTime: string       // formatted
+  newDate:     string        // formatted
+  newStartTime: string       // formatted
+  bookingRef:  string
+  shopName:    string
+  dashboardUrl: string
+}
+
+export function bookingRescheduledByCustomer(data: BookingRescheduledByCustomerData) {
+  const content = `
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="display:inline-block;width:48px;height:48px;background:rgba(201,168,76,0.12);border-radius:50%;border:1px solid rgba(201,168,76,0.25);line-height:48px;font-size:22px;margin-bottom:12px;">🔄</div>
+      <h1 style="margin:0;font-size:22px;font-weight:700;color:${TEXT};letter-spacing:0.04em;">Booking Rescheduled</h1>
+      <p style="margin:8px 0 0;font-size:14px;color:${MUTED};">Hey ${esc(data.barberName)}, a client moved their appointment.</p>
+    </div>
+
+    <div style="background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.2);border-radius:10px;padding:14px 18px;margin-bottom:24px;">
+      <p style="margin:0 0 6px;font-size:12px;color:${MUTED};line-height:1.6;text-decoration:line-through;">
+        ${data.oldDate} at ${data.oldStartTime}
+      </p>
+      <p style="margin:0;font-size:14px;color:${GOLD};font-weight:700;line-height:1.6;">
+        Now: ${data.newDate} at ${data.newStartTime}
+      </p>
+    </div>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
+      ${detailRow('Reference', esc(data.bookingRef))}
+      ${detailRow('Client',    esc(data.clientName))}
+      ${data.clientPhone ? detailRow('Phone', `<a href="tel:${esc(data.clientPhone)}" style="color:${GOLD};text-decoration:none;">${esc(data.clientPhone)}</a>`) : ''}
+      ${detailRow('Service',   esc(data.serviceName))}
+    </table>
+
+    <div style="text-align:center;">
+      ${ctaButton('VIEW IN DASHBOARD', data.dashboardUrl)}
+    </div>
+  `
+
+  const text = [
+    `BOOKING RESCHEDULED — ${data.shopName}`,
+    '',
+    `Hey ${data.barberName},`,
+    '',
+    `${data.clientName} moved their appointment.`,
+    '',
+    `Was: ${data.oldDate} at ${data.oldStartTime}`,
+    `Now: ${data.newDate} at ${data.newStartTime}`,
+    '',
+    `Reference: ${data.bookingRef}`,
+    `Client:    ${data.clientName}`,
+    data.clientPhone ? `Phone:     ${data.clientPhone}` : '',
+    `Service:   ${data.serviceName}`,
+    '',
+    `View in dashboard: ${data.dashboardUrl}`,
+  ].filter(l => l !== undefined).join('\n')
+
+  return {
+    subject: `Rescheduled: ${data.clientName} → ${data.newDate} at ${data.newStartTime}`,
+    html:    emailShell(content, data.shopName),
     text,
   }
 }

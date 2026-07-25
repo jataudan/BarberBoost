@@ -217,6 +217,12 @@ export async function POST(request: NextRequest) {
       bookingRef:      bookingRef,
       depositAmount:   deposit_amount,
     }
+    const manageToken = (booking as { manage_token?: string }).manage_token
+    if (manageToken) {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://barberboost.app'
+      emailData.rescheduleUrl = `${appUrl}/booking/manage/${manageToken}?action=reschedule`
+      emailData.cancelUrl     = `${appUrl}/booking/manage/${manageToken}?action=cancel`
+    }
     sendBookingEmail(bookingConfirmation, client_email, emailData)
   }
 
@@ -289,6 +295,12 @@ export async function PATCH(request: NextRequest) {
       currency:        shop.currency ?? 'GBP',
       bookingId:       existing.id,
       bookingRef:      (existing.booking_ref as string | null) ?? existing.id.slice(0, 8).toUpperCase(),
+    }
+    // Give confirmation emails working self-service links (cancellation emails don't need them).
+    if (status === 'confirmed' && existing.manage_token) {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://barberboost.app'
+      emailData.rescheduleUrl = `${appUrl}/booking/manage/${existing.manage_token}?action=reschedule`
+      emailData.cancelUrl     = `${appUrl}/booking/manage/${existing.manage_token}?action=cancel`
     }
     sendBookingEmail(
       status === 'confirmed' ? bookingConfirmation : bookingCancellation,

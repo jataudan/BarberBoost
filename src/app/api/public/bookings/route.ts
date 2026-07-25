@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
       selected_style_ids:  selected_style_ids ?? [],
       style_confidence:    style_confidence ?? null,
     })
-    .select('id, booking_ref')
+    .select('id, booking_ref, manage_token')
     .single()
 
   if (insertError || !booking) {
@@ -260,6 +260,8 @@ export async function POST(request: NextRequest) {
     bookingPageUrl:  `${appUrl}/booking/${(shop as { slug?: string }).slug ?? shop_id}`,
     selectedStyleTitles,
     styleConfidence: style_confidence,
+    rescheduleUrl:   `${appUrl}/booking/manage/${booking.manage_token}?action=reschedule`,
+    cancelUrl:       `${appUrl}/booking/manage/${booking.manage_token}?action=cancel`,
   }
 
   const { Resend: ResendClient } = await import('resend')

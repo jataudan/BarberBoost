@@ -164,6 +164,7 @@ export interface Booking {
   source:              string
   selected_style_ids:  string[]        // UUIDs of selected haircut_styles
   style_confidence:    number | null   // 1–100, how closely client wants to match
+  manage_token:        string          // unguessable token for customer cancel/reschedule links
   created_at:          string
   updated_at:          string
 }
@@ -271,7 +272,7 @@ export type ClientInsert = Omit<Client,
 >
 
 export type BookingInsert = Omit<Booking,
-  'id' | 'created_at' | 'updated_at' | 'reminder_sent'
+  'id' | 'created_at' | 'updated_at' | 'reminder_sent' | 'manage_token'
 >
 
 export type InventoryInsert = Omit<InventoryItem,

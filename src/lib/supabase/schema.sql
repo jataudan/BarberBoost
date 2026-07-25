@@ -583,6 +583,14 @@ CREATE POLICY "public_read_active_haircut_styles" ON haircut_styles
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS selected_style_ids UUID[]  DEFAULT '{}';
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS style_confidence   INTEGER;  -- 1-100, how closely the client wants to match
 
+-- ── 3b. Customer self-service manage token ──────────────────────────────────
+-- Unguessable per-booking token used to build the cancel/reschedule links in
+-- customer emails. Read/written only via the service-role client on the public
+-- /api/public/manage routes — no RLS policy exposes it to the anon client.
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS manage_token UUID DEFAULT gen_random_uuid();
+UPDATE bookings SET manage_token = gen_random_uuid() WHERE manage_token IS NULL;  -- backfill existing rows
+CREATE INDEX IF NOT EXISTS idx_bookings_manage_token ON bookings(manage_token);
+
 -- ── 4. Storage buckets ─────────────────────────────────────────────────────
 
 -- Avatars for staff profile photos
