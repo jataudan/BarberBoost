@@ -3,7 +3,20 @@
     "allow": [
       "Bash(node -e \"const p = require\\('./node_modules/recharts/package.json'\\); console.log\\(p.version\\)\")",
       "Bash(node -e \"const t = require\\('fs'\\).readFileSync\\('./node_modules/recharts/types/component/Tooltip/index.d.ts', 'utf8'\\); console.log\\(t.slice\\(0,3000\\)\\)\")",
-      "Read(//c/Users/dkj64/OneDove - WEBXCELL DIGITAL/Arewa Digital - Documents/_2026 AI Built Applications/BarberBoost/New Version/barberboost/src/lib/supabase/**)"
+      "Read(//c/Users/dkj64/OneDove - WEBXCELL DIGITAL/Arewa Digital - Documents/_2026 AI Built Applications/BarberBoost/New Version/barberboost/src/lib/supabase/**)",
+      "Bash(git -C \"c:\\\\Users\\\\dkj64\\\\Documents\\\\Development -2026 Local Apps\\\\barberboost\" remote -v)",
+      "Bash(curl -s https://barberboost.app/api/clients/export?shop_id=test)",
+      "Bash(curl -s -X POST https://barberboost.app/api/clients/import)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://barberboost.app/blog/reduce-no-shows-automated-reminders\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://barberboost.app/blog/uk-barbershop-owner-guide-growing-client-base\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://barberboost.app/blog/5-signs-ready-to-go-digital\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://barberboost.app/blog/how-to-price-services-uk-barbers\")",
+      "Bash(supabase --version)",
+      "Bash(ls supabase/)",
+      "Bash(git commit *)",
+      "Bash(vercel env *)",
+      "Bash(SKIP_SEND=1 node --experimental-strip-types scripts/test-emails.mjs)",
+      "Bash(del \"c:\\\\Users\\\\dkj64\\\\Documents\\\\Development -2026 Local Apps\\\\barberboost\\\\src\\\\app\\\\api\\\\send-email\\\\route.ts\")"
     ]
   }
 }

@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BarberBoost — Mobile PWA Roadmap</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+    :root {
+      --gold:    #c9a84c;
+      --gold-lt: #e2bf6a;
+      --bg:      #0a0a0a;
+      --surface: #111111;
+      --surface2:#1a1a1a;
+      --border:  rgba(255,255,255,0.07);
+      --text:    #ffffff;
+      --muted:   #a1a1aa;
+      --dim:     #52525b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.6;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    /* ── PAGE LAYOUT ─────────────────────────────────────────── */
+    .page {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 48px 48px 64px;
+    }
+
+    /* ── COVER ───────────────────────────────────────────────── */
+    .cover {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 64px 64px 56px;
+      background: var(--bg);
+      page-break-after: always;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cover::before {
+      content: '';
+      position: absolute;
+      top: -200px; right: -200px;
+      width: 600px; height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(201,168,76,0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .cover-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .cover-logo-mark {
+      width: 48px; height: 48px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #c9a84c, #a8873a);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; font-weight: 900; color: #000;
+      letter-spacing: -1px;
+    }
+
+    .cover-logo-text {
+      font-size: 22px; font-weight: 800;
+      color: var(--text); letter-spacing: -0.5px;
+    }
+
+    .cover-logo-text span { color: var(--gold); }
+
+    .cover-body { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 64px 0 32px; }
+
+    .cover-eyebrow {
+      font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 3px;
+      color: var(--gold); margin-bottom: 20px;
+    }
+
+    .cover-title {
+      font-size: 52px; font-weight: 900;
+      line-height: 1.05; letter-spacing: -2px;
+      color: var(--text);
+      margin-bottom: 20px;
+    }
+
+    .cover-title span { color: var(--gold); }
+
+    .cover-subtitle {
+      font-size: 16px; font-weight: 400;
+      color: var(--muted); max-width: 480px;
+      line-height: 1.7;
+    }
+
+    .cover-divider {
+      width: 48px; height: 3px;
+      background: var(--gold); border-radius: 2px;
+      margin: 28px 0;
+    }
+
+    .cover-meta {
+      display: flex; gap: 32px;
+      font-size: 12px; color: var(--dim);
+      padding-top: 32px;
+      border-top: 1px solid var(--border);
+    }
+
+    .cover-meta strong { color: var(--muted); display: block; margin-bottom: 2px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+
+    /* ── SECTION PAGES ───────────────────────────────────────── */
+    .section {
+      page-break-before: always;
+      padding: 56px 64px 64px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .section-number {
+      font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 3px;
+      color: var(--gold); margin-bottom: 8px;
+    }
+
+    .section-title {
+      font-size: 32px; font-weight: 800;
+      letter-spacing: -1px; color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .section-intro {
+      font-size: 13px; color: var(--muted);
+      max-width: 540px; margin-bottom: 36px;
+      line-height: 1.7;
+    }
+
+    .section-divider {
+      width: 32px; height: 2px;
+      background: var(--gold); border-radius: 1px;
+      margin-bottom: 36px;
+    }
+
+    /* ── OPTION CARDS ────────────────────────────────────────── */
+    .option-cards { display: flex; flex-direction: column; gap: 16px; }
+
+    .option-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px 28px;
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+    }
+
+    .option-card.recommended { border-color: rgba(201,168,76,0.35); background: rgba(201,168,76,0.04); }
+
+    .option-badge {
+      flex-shrink: 0;
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+
+    .option-card.recommended .option-badge {
+      background: rgba(201,168,76,0.12);
+      border-color: rgba(201,168,76,0.3);
+    }
+
+    .option-body { flex: 1; }
+    .option-header { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+
+    .option-name {
+      font-size: 14px; font-weight: 700; color: var(--text);
+    }
+
+    .pill {
+      font-size: 9px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 1px;
+      padding: 2px 8px; border-radius: 99px;
+    }
+
+    .pill-gold  { background: rgba(201,168,76,0.15); color: var(--gold); border: 1px solid rgba(201,168,76,0.25); }
+    .pill-green { background: rgba(34,197,94,0.12); color: #4ade80; border: 1px solid rgba(34,197,94,0.2); }
+    .pill-blue  { background: rgba(99,102,241,0.12); color: #818cf8; border: 1px solid rgba(99,102,241,0.2); }
+    .pill-red   { background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.2); }
+    .pill-zinc  { background: rgba(113,113,122,0.15); color: var(--dim); border: 1px solid rgba(113,113,122,0.2); }
+
+    .option-desc { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 10px; }
+
+    .trade-off {
+      font-size: 11px; color: var(--dim);
+      padding: 8px 12px;
+      background: rgba(255,255,255,0.02);
+      border-left: 2px solid var(--border);
+      border-radius: 0 6px 6px 0;
+    }
+
+    .trade-off strong { color: var(--muted); }
+
+    /* ── FEATURE TABLES ──────────────────────────────────────── */
+    .feature-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 4px; }
+
+    .feature-group {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
+    .feature-group-header {
+      padding: 14px 18px 10px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    .feature-group-icon {
+      width: 28px; height: 28px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+
+    .feature-group-title { font-size: 12px; font-weight: 700; color: var(--text); }
+    .feature-group-sub   { font-size: 10px; color: var(--dim); margin-top: 1px; }
+
+    .feature-list { padding: 4px 0; }
+
+    .feature-item {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 9px 18px;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+    }
+
+    .feature-item:last-child { border-bottom: none; }
+
+    .feature-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      flex-shrink: 0; margin-top: 5px;
+    }
+
+    .dot-gold  { background: var(--gold); }
+    .dot-green { background: #4ade80; }
+    .dot-zinc  { background: var(--dim); }
+
+    .feature-text { font-size: 12px; color: var(--text); line-height: 1.4; }
+    .feature-note { font-size: 10px; color: var(--dim); margin-top: 1px; }
+
+    .defer-label {
+      font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+      color: var(--dim); padding: 2px 6px; border-radius: 4px;
+      background: rgba(255,255,255,0.04); flex-shrink: 0; margin-top: 3px;
+    }
+
+    /* ── AUDIT TABLE ─────────────────────────────────────────── */
+    .audit-table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+
+    .audit-table th {
+      font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;
+      color: var(--dim); padding: 10px 16px;
+      background: rgba(255,255,255,0.02);
+      text-align: left; border-bottom: 1px solid var(--border);
+    }
+
+    .audit-table td {
+      padding: 12px 16px; font-size: 12px; color: var(--muted);
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      vertical-align: top;
+    }
+
+    .audit-table tr:last-child td { border-bottom: none; }
+
+    .audit-table td:first-child { color: var(--text); font-weight: 500; }
+
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 10px; font-weight: 600;
+      padding: 3px 8px; border-radius: 6px;
+    }
+
+    .status-ready  { background: rgba(34,197,94,0.1);  color: #4ade80; }
+    .status-fix    { background: rgba(251,191,36,0.1);  color: #fbbf24; }
+    .status-build  { background: rgba(99,102,241,0.12); color: #818cf8; }
+
+    .status-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+    /* ── PHASE TIMELINE ──────────────────────────────────────── */
+    .phases { display: flex; flex-direction: column; gap: 0; margin-top: 4px; }
+
+    .phase {
+      display: flex; gap: 0;
+      position: relative;
+    }
+
+    .phase-line-col {
+      display: flex; flex-direction: column; align-items: center;
+      width: 48px; flex-shrink: 0;
+      padding-top: 2px;
+    }
+
+    .phase-dot {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--surface);
+      border: 2px solid var(--gold);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 800; color: var(--gold);
+      flex-shrink: 0; z-index: 1;
+    }
+
+    .phase-connector {
+      width: 2px; flex: 1; min-height: 20px;
+      background: linear-gradient(to bottom, rgba(201,168,76,0.4), rgba(201,168,76,0.1));
+      margin: 4px 0;
+    }
+
+    .phase:last-child .phase-connector { display: none; }
+
+    .phase-content {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 22px;
+      margin-bottom: 16px;
+      margin-left: 8px;
+    }
+
+    .phase-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .phase-title { font-size: 13px; font-weight: 700; color: var(--text); }
+
+    .phase-effort {
+      font-size: 10px; font-weight: 600;
+      color: var(--gold);
+      background: rgba(201,168,76,0.1);
+      border: 1px solid rgba(201,168,76,0.2);
+      padding: 2px 8px; border-radius: 6px;
+    }
+
+    .phase-tasks { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+
+    .phase-tasks li {
+      font-size: 12px; color: var(--muted);
+      display: flex; align-items: flex-start; gap: 8px;
+    }
+
+    .phase-tasks li::before {
+      content: '→';
+      color: var(--gold);
+      flex-shrink: 0;
+      font-weight: 600;
+    }
+
+    /* ── SUMMARY BOX ─────────────────────────────────────────── */
+    .summary-box {
+      background: rgba(201,168,76,0.06);
+      border: 1px solid rgba(201,168,76,0.25);
+      border-radius: 16px;
+      padding: 28px 32px;
+      margin-top: 32px;
+    }
+
+    .summary-box-title {
+      font-size: 13px; font-weight: 700; color: var(--gold);
+      margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px;
+    }
+
+    .summary-stats {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    .summary-stat-value {
+      font-size: 28px; font-weight: 900; color: var(--text);
+      letter-spacing: -1px;
+    }
+
+    .summary-stat-label {
+      font-size: 11px; color: var(--muted); margin-top: 2px;
+    }
+
+    /* ── NEXT STEPS ──────────────────────────────────────────── */
+    .next-steps { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
+
+    .next-step {
+      display: flex; align-items: flex-start; gap: 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+    }
+
+    .next-step-num {
+      width: 28px; height: 28px; border-radius: 8px;
+      background: rgba(201,168,76,0.12);
+      border: 1px solid rgba(201,168,76,0.25);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 800; color: var(--gold);
+      flex-shrink: 0;
+    }
+
+    .next-step-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+    .next-step-desc  { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+    /* ── FOOTER ──────────────────────────────────────────────── */
+    .page-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: auto; padding-top: 32px;
+      border-top: 1px solid var(--border);
+      font-size: 10px; color: var(--dim);
+    }
+
+    .footer-brand { display: flex; align-items: center; gap: 6px; }
+    .footer-dot   { width: 4px; height: 4px; border-radius: 50%; background: var(--gold); }
+
+    /* ── PRINT ───────────────────────────────────────────────── */
+    @media print {
+      body   { background: #0a0a0a !important; }
+      .cover { page-break-after: always; }
+      .section { page-break-before: always; }
+    }
+
+    @page {
+      size: A4;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!--  COVER PAGE                                               -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-logo">
+    <div class="cover-logo-mark">BB</div>
+    <div class="cover-logo-text">Barber<span>Boost</span></div>
+  </div>
+
+  <div class="cover-body">
+    <div class="cover-eyebrow">Mobile Strategy Document</div>
+    <h1 class="cover-title">
+      Mobile PWA<br /><span>Roadmap</span>
+    </h1>
+    <div class="cover-divider"></div>
+    <p class="cover-subtitle">
+      A complete strategy for transforming BarberBoost into an installable mobile experience for barbers and customers on both Android and iOS — without building a new codebase.
+    </p>
+  </div>
+
+  <div class="cover-meta">
+    <div><strong>Prepared for</strong>Dan Jatau</div>
+    <div><strong>Date</strong>May 2026</div>
+    <div><strong>Version</strong>1.0</div>
+    <div><strong>Status</strong>Approved for Implementation</div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!--  SECTION 1 — APPROACH OPTIONS                             -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-number">Section 01</div>
+  <h2 class="section-title">Approach Options</h2>
+  <p class="section-intro">Three viable paths were evaluated for delivering BarberBoost on Android and iOS. Each was assessed against the criteria of development speed, code reuse, and native experience quality.</p>
+  <div class="section-divider"></div>
+
+  <div class="option-cards">
+
+    <div class="option-card recommended">
+      <div class="option-badge">🌐</div>
+      <div class="option-body">
+        <div class="option-header">
+          <div class="option-name">Option 1 — Progressive Web App (PWA)</div>
+          <span class="pill pill-gold">Recommended</span>
+          <span class="pill pill-green">Lowest Complexity</span>
+        </div>
+        <p class="option-desc">
+          Enhance the existing Next.js application to be installable on home screens like a native app. No new codebase is required — everything already built carries over. A <code>manifest.json</code>, service worker, and web push notifications are added on top of the current app.
+        </p>
+        <div class="trade-off">
+          <strong>Trade-off:</strong> No App Store or Google Play listing. Android (Chrome) has excellent PWA support including push notifications and install prompts. iOS 16.4+ supports push notifications via PWA; older iOS versions do not. Some users won't know how to install without a store link — mitigated by an in-app install prompt on both platforms.
+        </div>
+      </div>
+    </div>
+
+    <div class="option-card">
+      <div class="option-badge">📦</div>
+      <div class="option-body">
+        <div class="option-header">
+          <div class="option-name">Option 2 — Capacitor</div>
+          <span class="pill pill-blue">Middle Ground</span>
+        </div>
+        <p class="option-desc">
+          Wraps the existing Next.js web app in a native shell and publishes to both the Apple App Store and Google Play Store. The codebase remains unchanged — Capacitor provides a bridge for native APIs including push notifications on both platforms.
+        </p>
+        <div class="trade-off">
+          <strong>Trade-off:</strong> UI is rendered in a WebView so it won't feel fully native on either platform, but it achieves store presence on both. Approximately 1–2 days of configuration. A natural upgrade path from the PWA if store listings become a business requirement.
+        </div>
+      </div>
+    </div>
+
+    <div class="option-card">
+      <div class="option-badge">📱</div>
+      <div class="option-body">
+        <div class="option-header">
+          <div class="option-name">Option 3 — Expo (React Native)</div>
+          <span class="pill pill-zinc">V2 Recommendation</span>
+        </div>
+        <p class="option-desc">
+          A fully native application using the existing API routes as its backend. All UI components are rewritten in React Native. SDKs for Supabase and Stripe are available. Approximately 70% of business logic (hooks, types, API calls) can be shared.
+        </p>
+        <div class="trade-off">
+          <strong>Trade-off:</strong> Requires building an entirely new frontend. Recommended as V2 once V1 PWA has validated mobile demand and revenue impact.
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="page-footer">
+    <div class="footer-brand">
+      <div class="footer-dot"></div>
+      <span>BarberBoost Mobile PWA Roadmap</span>
+    </div>
+    <span>Section 01 / Approach Options</span>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!--  SECTION 2 — V1 FEATURE PRIORITIES                        -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-number">Section 02</div>
+  <h2 class="section-title">V1 Feature Priorities</h2>
+  <p class="section-intro">The V1 release targets both barbers and customers simultaneously, with a hard scope boundary to avoid shipping two half-finished products. Build order: Barber features first, then Customer features.</p>
+  <div class="section-divider"></div>
+
+  <div class="feature-cols">
+
+    <!-- BARBER APP -->
+    <div class="feature-group">
+      <div class="feature-group-header">
+        <div class="feature-group-icon" style="background:rgba(201,168,76,0.12); border:1px solid rgba(201,168,76,0.25);">✂️</div>
+        <div>
+          <div class="feature-group-title">Barber / Shop Owner</div>
+          <div class="feature-group-sub">Build first — drives subscription retention</div>
+        </div>
+      </div>
+      <div class="feature-list">
+        <div class="feature-item">
+          <div class="feature-dot dot-gold"></div>
+          <div>
+            <div class="feature-text">Today's Schedule</div>
+            <div class="feature-note">Clean list of the day's bookings. The #1 reason a barber opens the app.</div>
+          </div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-dot dot-gold"></div>
+          <div>
+            <div class="feature-text">Booking Status Updates</div>
+            <div class="feature-note">Mark as completed, no-show, or cancelled without a laptop.</div>
+          </div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-dot dot-gold"></div>
+          <div>
+            <div class="feature-text">New Booking Push Notification</div>
+            <div class="feature-note">Instant alert when a customer books. Critical for shops not at a desk.</div>
+          </div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-dot dot-gold"></div>
+          <div>
+            <div class="feature-text">Quick Client Lookup</div>
+            <div class="feature-note">Search by name, view visit history and contact info.</div>
+          </div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-dot dot-gold"></div>
+          <div>
+            <div class="feature-text">Today's Stats Glance</div>
+            <div class="feature-note">Bookings today and revenue today. Single screen.</div>
+          </div>
+        </div>
+        <div class="feature-item" style="opacity:0.5">
+          <div class="feature-dot dot-zinc"></div>
+          <div style="display:flex;align-items:flex-start;gap:8px;flex:1">
+            <div style="flex:1">
+              <div class="feature-text">Inventory Management</div>
+              <div class="feature-note">Deferred to V2</div>
+            </div>
+            <div class="defer-label">V2</div>
+          </div>
+        </div>
+        <div class="feature-item" style="opacity:0.5">
+          <div class="feature-dot dot-zinc"></div>
+          <div style="display:flex;align-items:flex-start;gap:8px;flex:1">
+            <div style="flex:1">
+              <div class="feature-text">AI Marketing Copy</div>
+              <div class="feature-note">Deferred to V2 (Empire plan only)</div>
+            </div>
+            <div class="defer-label">V2</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CUSTOMER APP -->
+    <div class="feature-group">
+      <div class="feature-group-header">
+        <div class="feature-group-icon" style="background:rgba(99,102,241,0.12); border:1px solid rgba(99,102,241,0.25);">👤</div>
+        <div>
+          <div class="feature-group-title">Customer</div>
+          <div class="feature-group-sub">Build second — drives bookings to barbers</div>
+        </div>
+      </div>
+      <div class="feature-list">
+        <div class="feature-item">
+          <div class="feature-dot dot-gold"></div>
+          <div>
+            <div class="feature-text">Book an Appointment</div>
+            <div class="feature-note">Service → Staff → Time → Confirmation. The entire value proposition.</div>
+          </div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-dot dot-gold"></div>
+          <div>
+            <div class="feature-text">Shop Direct Link</div>
+            <div class="feature-note">Existing /booking/[slug] flow. Most customers arrive via a shared link.</div>
+          </div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-dot dot-gold"></div>
+          <div>
+            <div class="feature-text">My Bookings</div>
+            <div class="feature-note">View upcoming and past appointments via lightweight guest lookup.</div>
+          </div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-dot dot-gold"></div>
+          <div>
+            <div class="feature-text">Appointment Reminder Push</div>
+            <div class="feature-note">"Your appointment is tomorrow at 2pm." Justifies installing the app.</div>
+          </div>
+        </div>
+        <div class="feature-item" style="opacity:0.5">
+          <div class="feature-dot dot-zinc"></div>
+          <div style="display:flex;align-items:flex-start;gap:8px;flex:1">
+            <div style="flex:1">
+              <div class="feature-text">Shop Search / Map Browse</div>
+              <div class="feature-note">Requires significant new backend work</div>
+            </div>
+            <div class="defer-label">V2</div>
+          </div>
+        </div>
+        <div class="feature-item" style="opacity:0.5">
+          <div class="feature-dot dot-zinc"></div>
+          <div style="display:flex;align-items:flex-start;gap:8px;flex:1">
+            <div style="flex:1">
+              <div class="feature-text">In-App Payments</div>
+              <div class="feature-note">Adds App Store review complexity</div>
+            </div>
+            <div class="defer-label">V2</div>
+          </div>
+        </div>
+        <div class="feature-item" style="opacity:0.5">
+          <div class="feature-dot dot-zinc"></div>
+          <div style="display:flex;align-items:flex-start;gap:8px;flex:1">
+            <div style="flex:1">
+              <div class="feature-text">Loyalty / Rewards</div>
+              <div class="feature-note">Not in current system</div>
+            </div>
+            <div class="defer-label">V2</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="page-footer">
+    <div class="footer-brand">
+      <div class="footer-dot"></div>
+      <span>BarberBoost Mobile PWA Roadmap</span>
+    </div>
+    <span>Section 02 / Feature Priorities</span>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!--  SECTION 3 — MOBILE AUDIT                                 -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-number">Section 03</div>
+  <h2 class="section-title">Mobile Responsiveness Audit</h2>
+  <p class="section-intro">Every key page and component was reviewed against small-screen behaviour. The codebase has stronger mobile foundations than typical Next.js dashboard apps — the shell, navigation, and most page layouts are already ready.</p>
+  <div class="section-divider"></div>
+
+  <table class="audit-table" style="background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden;">
+    <thead>
+      <tr>
+        <th style="width:22%">Component</th>
+        <th style="width:15%">Status</th>
+        <th>Finding</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Dashboard Shell</td>
+        <td><span class="status-badge status-ready"><span class="status-dot"></span>Ready</span></td>
+        <td>BottomNav with safe-area insets, mobile sidebar drawer with backdrop, <code>pb-20</code> content padding to clear nav.</td>
+      </tr>
+      <tr>
+        <td>Bottom Navigation</td>
+        <td><span class="status-badge status-ready"><span class="status-dot"></span>Ready</span></td>
+        <td>5 primary destinations, 44px minimum hit targets, <code>env(safe-area-inset-bottom)</code> for notched devices. Excellent.</td>
+      </tr>
+      <tr>
+        <td>Header</td>
+        <td><span class="status-badge status-ready"><span class="status-dot"></span>Ready</span></td>
+        <td>Hamburger menu on mobile, page title truncates, "New Booking" collapses to icon-only on small screens.</td>
+      </tr>
+      <tr>
+        <td>Dashboard Page</td>
+        <td><span class="status-badge status-ready"><span class="status-dot"></span>Ready</span></td>
+        <td>All stat grids use <code>grid-cols-1 sm:grid-cols-2 lg:grid-cols-4</code>. Chart row stacks on mobile via <code>grid-cols-1 lg:grid-cols-5</code>.</td>
+      </tr>
+      <tr>
+        <td>Bookings Page</td>
+        <td><span class="status-badge status-ready"><span class="status-dot"></span>Ready</span></td>
+        <td>Week view hidden on mobile (<code>hidden sm:contents</code>). List and Day views are fully responsive. Controls collapse to icon buttons.</td>
+      </tr>
+      <tr>
+        <td>Clients Page</td>
+        <td><span class="status-badge status-ready"><span class="status-dot"></span>Ready</span></td>
+        <td>Responsive grid, horizontally scrollable tag filters, full-width search on mobile, list header hidden on small screens.</td>
+      </tr>
+      <tr>
+        <td>Public Booking Page</td>
+        <td><span class="status-badge status-ready"><span class="status-dot"></span>Ready</span></td>
+        <td>Explicitly mobile-first. Sticky "Book Now" bar on mobile, <code>max-w-2xl</code> centred layout, scrollable horizontal carousels. Best-in-class.</td>
+      </tr>
+      <tr>
+        <td>Weekly Calendar (Dashboard)</td>
+        <td><span class="status-badge status-fix"><span class="status-dot"></span>Needs Fix</span></td>
+        <td>Uses <code>min-w-[600px]</code> — technically scrollable but a 7-column time grid on a 390px phone is unusable. Should be hidden below <code>lg</code>, showing TodaySchedule only.</td>
+      </tr>
+      <tr>
+        <td>Analytics Page</td>
+        <td><span class="status-badge status-fix"><span class="status-dot"></span>Needs Fix</span></td>
+        <td>BusiestHoursHeatmap and StaffTable have fixed-width columns that overflow on small screens. Wrap in <code>overflow-x-auto</code> containers or provide mobile-collapsed variants.</td>
+      </tr>
+      <tr>
+        <td>PWA Infrastructure</td>
+        <td><span class="status-badge status-build"><span class="status-dot"></span>Not Built</span></td>
+        <td>No <code>manifest.json</code>, no service worker, no install prompt, no push notification support. This is the primary gap between "mobile website" and "installable PWA".</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-footer">
+    <div class="footer-brand">
+      <div class="footer-dot"></div>
+      <span>BarberBoost Mobile PWA Roadmap</span>
+    </div>
+    <span>Section 03 / Mobile Audit</span>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!--  SECTION 4 — IMPLEMENTATION PLAN                          -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-number">Section 04</div>
+  <h2 class="section-title">PWA Implementation Plan</h2>
+  <p class="section-intro">Four sequential phases take BarberBoost from responsive website to installable PWA with push notifications. Every improvement benefits the web app simultaneously.</p>
+  <div class="section-divider"></div>
+
+  <div class="phases">
+
+    <div class="phase">
+      <div class="phase-line-col">
+        <div class="phase-dot">1</div>
+        <div class="phase-connector"></div>
+      </div>
+      <div class="phase-content">
+        <div class="phase-header">
+          <div class="phase-title">Installable — Manifest &amp; Icons</div>
+          <div class="phase-effort">~Half Day</div>
+        </div>
+        <ul class="phase-tasks">
+          <li>Create <code>/public/manifest.json</code> with name, short name, theme colour <code>#c9a84c</code>, background <code>#0a0a0a</code>, display <code>standalone</code> — consumed by both Android and iOS</li>
+          <li>Generate icon assets at required sizes: 192×192, 512×512, and a maskable variant (Android adaptive icons); plus Apple touch icon variants for iOS home screen</li>
+          <li>Add Android meta tags to <code>app/layout.tsx</code>: <code>theme-color</code>, manifest link, <code>mobile-web-app-capable</code></li>
+          <li>Add iOS meta tags to <code>app/layout.tsx</code>: <code>apple-mobile-web-app-capable</code>, <code>apple-touch-icon</code>, <code>apple-mobile-web-app-status-bar-style</code></li>
+          <li>Add an in-app install prompt using the <code>beforeinstallprompt</code> event (Android/Chrome) with a manual "Add to Home Screen" guide for iOS Safari</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-line-col">
+        <div class="phase-dot">2</div>
+        <div class="phase-connector"></div>
+      </div>
+      <div class="phase-content">
+        <div class="phase-header">
+          <div class="phase-title">Offline Fallback — Service Worker</div>
+          <div class="phase-effort">~Half Day</div>
+        </div>
+        <ul class="phase-tasks">
+          <li>Install <code>next-pwa</code> (wraps Workbox, works with Next.js App Router)</li>
+          <li>Configure in <code>next.config.ts</code> — precaches static assets automatically</li>
+          <li>Add a simple <code>/offline</code> page rendered when the network is unavailable</li>
+          <li>Verify service worker registration and caching in Chrome DevTools</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-line-col">
+        <div class="phase-dot">3</div>
+        <div class="phase-connector"></div>
+      </div>
+      <div class="phase-content">
+        <div class="phase-header">
+          <div class="phase-title">Mobile Layout Fixes</div>
+          <div class="phase-effort">~1 Day</div>
+        </div>
+        <ul class="phase-tasks">
+          <li>Hide the weekly <code>BookingCalendar</code> below <code>lg</code> — show <code>TodaySchedule</code> only on mobile (single class change)</li>
+          <li>Wrap analytics heatmap and staff table in <code>overflow-x-auto</code> scroll containers</li>
+          <li>Audit inventory and settings pages for any additional overflow issues</li>
+          <li>Verify all pages across iPhone SE (375px) and standard iPhone (390px) viewports</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="phase-line-col">
+        <div class="phase-dot">4</div>
+      </div>
+      <div class="phase-content">
+        <div class="phase-header">
+          <div class="phase-title">Push Notifications</div>
+          <div class="phase-effort">~2 Days</div>
+        </div>
+        <ul class="phase-tasks">
+          <li>Generate VAPID key pair, store public/private keys as environment variables</li>
+          <li>Create <code>push_subscriptions</code> table in Supabase (device endpoint, keys, user/shop association)</li>
+          <li>Add <code>/api/push/subscribe</code> API route to save device subscriptions</li>
+          <li>Add subscription prompt component in DashboardShell — triggered on first mobile visit after install</li>
+          <li>Trigger push from Stripe webhook on new booking, and from booking API on customer confirmation</li>
+          <li>Customer reminder: trigger from existing cron reminder logic</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="summary-box">
+    <div class="summary-box-title">Implementation Summary</div>
+    <div class="summary-stats">
+      <div>
+        <div class="summary-stat-value">3.5</div>
+        <div class="summary-stat-label">Days total estimated effort</div>
+      </div>
+      <div>
+        <div class="summary-stat-value">0</div>
+        <div class="summary-stat-label">New codebases required</div>
+      </div>
+      <div>
+        <div class="summary-stat-value">100%</div>
+        <div class="summary-stat-label">Existing API routes reused</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <div class="footer-brand">
+      <div class="footer-dot"></div>
+      <span>BarberBoost Mobile PWA Roadmap</span>
+    </div>
+    <span>Section 04 / Implementation Plan</span>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!--  SECTION 5 — NEXT STEPS                                   -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-number">Section 05</div>
+  <h2 class="section-title">Next Steps</h2>
+  <p class="section-intro">The following actions are ready to begin immediately. All implementation has been planned against the existing codebase and requires no architectural changes.</p>
+  <div class="section-divider"></div>
+
+  <div class="next-steps">
+
+    <div class="next-step">
+      <div class="next-step-num">1</div>
+      <div>
+        <div class="next-step-title">Phase 1 — Create the PWA manifest and iOS meta tags</div>
+        <div class="next-step-desc">
+          Add <code>/public/manifest.json</code>, generate icons for both Android (192×192, 512×512 maskable) and iOS (Apple touch icon variants), and update <code>src/app/layout.tsx</code> with Android <code>theme-color</code> and iOS <code>apple-mobile-web-app-capable</code> meta tags. This makes the app installable on both platforms immediately.
+        </div>
+      </div>
+    </div>
+
+    <div class="next-step">
+      <div class="next-step-num">2</div>
+      <div>
+        <div class="next-step-title">Phase 2 — Add service worker with next-pwa</div>
+        <div class="next-step-desc">
+          Install <code>next-pwa</code>, configure Workbox caching strategy in <code>next.config.ts</code>, and add an offline fallback page. Verify precaching and offline behaviour in Chrome DevTools.
+        </div>
+      </div>
+    </div>
+
+    <div class="next-step">
+      <div class="next-step-num">3</div>
+      <div>
+        <div class="next-step-title">Phase 3 — Fix the two mobile layout issues</div>
+        <div class="next-step-desc">
+          Hide <code>BookingCalendar</code> on mobile screens (one-line fix), and wrap analytics charts in <code>overflow-x-auto</code> containers. Verify layout across 375px and 390px viewports.
+        </div>
+      </div>
+    </div>
+
+    <div class="next-step">
+      <div class="next-step-num">4</div>
+      <div>
+        <div class="next-step-title">Phase 4 — Implement push notifications</div>
+        <div class="next-step-desc">
+          Set up VAPID keys, create the <code>push_subscriptions</code> database table, build the subscribe API route, add the in-app permission prompt, and wire push triggers into the booking and webhook flows.
+        </div>
+      </div>
+    </div>
+
+    <div class="next-step">
+      <div class="next-step-num">5</div>
+      <div>
+        <div class="next-step-title">V2 Decision — Evaluate Capacitor for App Store presence</div>
+        <div class="next-step-desc">
+          After the PWA has been live for 4–6 weeks, review mobile usage metrics and subscriber feedback. If App Store listing becomes a business requirement, migrate to Capacitor — it wraps the same codebase with approximately 1–2 days of additional configuration.
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="page-footer">
+    <div class="footer-brand">
+      <div class="footer-dot"></div>
+      <span>BarberBoost Mobile PWA Roadmap — Confidential</span>
+    </div>
+    <span>Section 05 / Next Steps</span>
+  </div>
+</div>
+
+</body>
+</html>

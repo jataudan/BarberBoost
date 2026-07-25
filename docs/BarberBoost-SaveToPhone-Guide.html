@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BarberBoost — Save to Phone Guide</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+    :root {
+      --gold:    #c9a84c;
+      --gold-lt: #e2bf6a;
+      --gold-dk: #a8873a;
+      --bg:      #0a0a0a;
+      --surface: #111111;
+      --surface2:#1a1a1a;
+      --surface3:#222222;
+      --border:  rgba(255,255,255,0.07);
+      --text:    #ffffff;
+      --muted:   #a1a1aa;
+      --dim:     #52525b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.6;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    @media print {
+      @page { size: A4; margin: 0; }
+      body   { background: #0a0a0a; }
+    }
+
+    /* ── PAGES ─────────────────────────────────────────────────── */
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto;
+      padding: 0;
+      page-break-after: always;
+      overflow: hidden;
+      position: relative;
+      background: var(--bg);
+    }
+    .page:last-child { page-break-after: avoid; }
+
+    /* ── DECORATIVE GLOWS ──────────────────────────────────────── */
+    .glow-tl {
+      position: absolute; top: -160px; left: -160px;
+      width: 480px; height: 480px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(201,168,76,0.10) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .glow-br {
+      position: absolute; bottom: -140px; right: -140px;
+      width: 400px; height: 400px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(201,168,76,0.07) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       COVER PAGE
+    ═══════════════════════════════════════════════════════════ */
+    .cover {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 56px 56px 52px;
+      min-height: 297mm;
+    }
+
+    .cover-top { display: flex; flex-direction: column; gap: 48px; }
+
+    /* Logo */
+    .logo-mark {
+      display: inline-flex; align-items: center; gap: 10px;
+    }
+    .logo-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      background: linear-gradient(135deg, var(--gold), var(--gold-dk));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; font-weight: 900; color: #000; letter-spacing: -0.5px;
+    }
+    .logo-text {
+      font-size: 18px; font-weight: 800; color: var(--text); letter-spacing: -0.5px;
+    }
+    .logo-text span { color: var(--gold); }
+
+    /* Cover headline */
+    .cover-headline { max-width: 500px; }
+
+    .cover-label {
+      display: inline-block;
+      font-size: 10px; font-weight: 700; letter-spacing: 2.5px;
+      text-transform: uppercase; color: var(--gold);
+      border: 1px solid rgba(201,168,76,0.35);
+      background: rgba(201,168,76,0.08);
+      padding: 4px 12px; border-radius: 20px;
+      margin-bottom: 20px;
+    }
+
+    .cover-title {
+      font-size: 52px; font-weight: 900; line-height: 1.05;
+      letter-spacing: -2px; color: var(--text);
+      margin-bottom: 16px;
+    }
+    .cover-title .gold { color: var(--gold); }
+
+    .cover-subtitle {
+      font-size: 16px; font-weight: 400; color: var(--muted);
+      line-height: 1.6; max-width: 420px;
+    }
+
+    /* Cover hero illustration */
+    .cover-hero {
+      display: flex;
+      gap: 16px;
+      margin-top: 40px;
+    }
+
+    .phone-mock {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 20px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .phone-mock .platform-badge {
+      font-size: 9px; font-weight: 700; letter-spacing: 1.5px;
+      text-transform: uppercase; padding: 3px 10px; border-radius: 12px;
+    }
+    .phone-mock.ios .platform-badge  { background: rgba(100,210,255,0.12); color: #64d2ff; border: 1px solid rgba(100,210,255,0.25); }
+    .phone-mock.android .platform-badge { background: rgba(61,220,132,0.12); color: #3ddc84; border: 1px solid rgba(61,220,132,0.25); }
+
+    .phone-screen {
+      width: 100%; background: var(--surface2);
+      border-radius: 12px; padding: 14px 12px;
+      border: 1px solid var(--border);
+    }
+    .screen-bar {
+      height: 6px; border-radius: 3px; background: var(--gold);
+      margin-bottom: 10px; width: 60%;
+    }
+    .screen-line {
+      height: 4px; border-radius: 2px; background: rgba(255,255,255,0.08);
+      margin-bottom: 6px;
+    }
+    .screen-line.short { width: 70%; }
+    .screen-line.shorter { width: 45%; }
+    .screen-btn {
+      margin-top: 12px; background: var(--gold);
+      height: 28px; border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      gap: 6px; font-size: 10px; font-weight: 700; color: #000;
+    }
+    .phone-label {
+      font-size: 11px; font-weight: 600; color: var(--muted);
+      text-align: center;
+    }
+
+    .cover-divider {
+      width: 48px; height: 2px;
+      background: linear-gradient(90deg, var(--gold), transparent);
+      margin: 32px 0;
+    }
+
+    /* Cover stats row */
+    .cover-stats {
+      display: flex; gap: 24px;
+    }
+    .stat-item {
+      display: flex; flex-direction: column; gap: 3px;
+    }
+    .stat-value {
+      font-size: 20px; font-weight: 900; color: var(--gold); letter-spacing: -0.5px;
+    }
+    .stat-label {
+      font-size: 10px; font-weight: 500; color: var(--dim); letter-spacing: 0.5px;
+    }
+
+    /* Cover footer */
+    .cover-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      padding-top: 32px;
+      border-top: 1px solid var(--border);
+    }
+    .cover-footer-left {
+      font-size: 11px; color: var(--dim);
+    }
+    .cover-footer-left strong { color: var(--muted); }
+    .cover-footer-right {
+      font-size: 10px; color: var(--dim); text-align: right;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       INNER PAGES
+    ═══════════════════════════════════════════════════════════ */
+    .inner {
+      padding: 48px 52px 52px;
+      min-height: 297mm;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Page header strip */
+    .page-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 36px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .page-header-logo {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .page-header-icon {
+      width: 26px; height: 26px; border-radius: 6px;
+      background: linear-gradient(135deg, var(--gold), var(--gold-dk));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 900; color: #000;
+    }
+    .page-header-brand {
+      font-size: 13px; font-weight: 800; letter-spacing: -0.3px; color: var(--text);
+    }
+    .page-header-brand span { color: var(--gold); }
+    .page-header-title {
+      font-size: 10px; font-weight: 600; color: var(--dim); letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+
+    /* Section label */
+    .section-label {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 9px; font-weight: 700; letter-spacing: 2px;
+      text-transform: uppercase; color: var(--gold);
+      margin-bottom: 10px;
+    }
+    .section-label::before {
+      content: '';
+      display: block; width: 20px; height: 1px; background: var(--gold);
+    }
+
+    /* Section title */
+    .section-title {
+      font-size: 28px; font-weight: 900; letter-spacing: -1px;
+      color: var(--text); line-height: 1.1; margin-bottom: 8px;
+    }
+    .section-title .gold { color: var(--gold); }
+
+    .section-intro {
+      font-size: 13px; color: var(--muted); line-height: 1.65;
+      max-width: 520px; margin-bottom: 28px;
+    }
+
+    /* Platform pill */
+    .platform-pill {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 5px 14px; border-radius: 20px;
+      font-size: 11px; font-weight: 700;
+      margin-bottom: 20px;
+    }
+    .platform-pill.ios {
+      background: rgba(100,210,255,0.10);
+      border: 1px solid rgba(100,210,255,0.22);
+      color: #64d2ff;
+    }
+    .platform-pill.android {
+      background: rgba(61,220,132,0.10);
+      border: 1px solid rgba(61,220,132,0.22);
+      color: #3ddc84;
+    }
+    .platform-pill.all {
+      background: rgba(201,168,76,0.10);
+      border: 1px solid rgba(201,168,76,0.22);
+      color: var(--gold);
+    }
+
+    /* Step list */
+    .steps { display: flex; flex-direction: column; gap: 0; }
+
+    .step {
+      display: flex; gap: 16px; align-items: flex-start;
+      padding: 18px 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      margin-bottom: 8px;
+      position: relative;
+    }
+
+    .step-connector {
+      position: absolute; left: 37px; bottom: -8px;
+      width: 1px; height: 8px;
+      background: linear-gradient(180deg, var(--gold-dk), transparent);
+    }
+    .step:last-child .step-connector { display: none; }
+
+    .step-num {
+      width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--gold), var(--gold-dk));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 900; color: #000;
+    }
+
+    .step-content { flex: 1; }
+
+    .step-title {
+      font-size: 13px; font-weight: 700; color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .step-desc {
+      font-size: 12px; color: var(--muted); line-height: 1.55;
+    }
+
+    .step-desc .highlight {
+      display: inline-block;
+      background: rgba(201,168,76,0.12);
+      border: 1px solid rgba(201,168,76,0.25);
+      color: var(--gold);
+      font-weight: 600; font-size: 11px;
+      padding: 1px 8px; border-radius: 5px;
+      margin: 0 2px;
+    }
+
+    .step-icon {
+      width: 34px; height: 34px; flex-shrink: 0;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+
+    /* Tip / note box */
+    .tip-box {
+      background: rgba(201,168,76,0.06);
+      border: 1px solid rgba(201,168,76,0.18);
+      border-left: 3px solid var(--gold);
+      border-radius: 0 10px 10px 0;
+      padding: 12px 16px;
+      margin-top: 20px;
+    }
+    .tip-box-label {
+      font-size: 9px; font-weight: 700; letter-spacing: 1.5px;
+      text-transform: uppercase; color: var(--gold); margin-bottom: 5px;
+    }
+    .tip-box p {
+      font-size: 12px; color: var(--muted); line-height: 1.55;
+    }
+    .tip-box p strong { color: var(--text); }
+
+    /* Two-column layout */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 24px; }
+
+    .col-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+    }
+    .col-card-label {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 10px; font-weight: 700; letter-spacing: 1px;
+      text-transform: uppercase; margin-bottom: 12px;
+    }
+    .col-card-label .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+    }
+    .col-card-label.ios  .dot { background: #64d2ff; }
+    .col-card-label.android .dot { background: #3ddc84; }
+
+    .col-card .mini-step {
+      display: flex; align-items: flex-start; gap: 10px;
+      margin-bottom: 9px;
+    }
+    .col-card .mini-step:last-child { margin-bottom: 0; }
+    .mini-num {
+      width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+      background: rgba(201,168,76,0.15); border: 1px solid rgba(201,168,76,0.30);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; font-weight: 800; color: var(--gold);
+    }
+    .mini-text {
+      font-size: 11px; color: var(--muted); line-height: 1.5; padding-top: 2px;
+    }
+    .mini-text strong { color: var(--text); }
+
+    /* Barber share row */
+    .share-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+      margin-bottom: 20px;
+    }
+    .share-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 14px;
+      text-align: center;
+    }
+    .share-icon {
+      font-size: 26px; margin-bottom: 8px; display: block;
+    }
+    .share-name {
+      font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 3px;
+    }
+    .share-desc {
+      font-size: 10px; color: var(--dim); line-height: 1.4;
+    }
+
+    /* Benefits list */
+    .benefits { display: flex; flex-direction: column; gap: 8px; }
+    .benefit-row {
+      display: flex; align-items: flex-start; gap: 10px;
+    }
+    .benefit-check {
+      width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+      background: rgba(201,168,76,0.15); border: 1px solid rgba(201,168,76,0.30);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; color: var(--gold); font-weight: 900;
+      margin-top: 1px;
+    }
+    .benefit-text {
+      font-size: 12px; color: var(--muted); line-height: 1.5;
+    }
+    .benefit-text strong { color: var(--text); }
+
+    /* QR placeholder */
+    .qr-block {
+      display: flex; gap: 16px; align-items: center;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px 18px;
+      margin-bottom: 14px;
+    }
+    .qr-box {
+      width: 72px; height: 72px; flex-shrink: 0;
+      background: white; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; font-weight: 600; color: #666;
+      text-align: center; padding: 4px;
+    }
+    .qr-text {}
+    .qr-text .qr-title {
+      font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px;
+    }
+    .qr-text p {
+      font-size: 11px; color: var(--muted); line-height: 1.5;
+    }
+    .qr-text .url-pill {
+      display: inline-block; margin-top: 7px;
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--gold); font-size: 10px; font-weight: 500;
+      padding: 3px 10px; border-radius: 6px; font-family: monospace;
+    }
+
+    /* Page footer */
+    .page-footer {
+      margin-top: auto; padding-top: 24px;
+      border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .pf-left { font-size: 10px; color: var(--dim); }
+    .pf-left span { color: var(--gold); font-weight: 600; }
+    .pf-right { font-size: 10px; color: var(--dim); }
+
+    /* Divider */
+    .divider {
+      width: 100%; height: 1px; background: var(--border); margin: 22px 0;
+    }
+
+    .gold-bar {
+      width: 36px; height: 2px;
+      background: linear-gradient(90deg, var(--gold), transparent);
+      margin-bottom: 14px;
+    }
+
+    /* Banner preview */
+    .banner-preview {
+      background: #111111;
+      border: 1px solid rgba(201,168,76,0.20);
+      border-radius: 16px;
+      padding: 12px 14px;
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 20px;
+      box-shadow: 0 0 0 1px rgba(201,168,76,0.08);
+    }
+    .banner-icon {
+      width: 44px; height: 44px; border-radius: 11px; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--gold), var(--gold-dk));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 900; color: #000;
+    }
+    .banner-copy { flex: 1; }
+    .banner-copy .banner-title {
+      font-size: 13px; font-weight: 700; color: white; line-height: 1.2; margin-bottom: 2px;
+    }
+    .banner-copy .banner-sub {
+      font-size: 11px; color: #a1a1aa;
+    }
+    .banner-btn {
+      background: var(--gold); color: #000;
+      font-size: 11px; font-weight: 700;
+      padding: 7px 14px; border-radius: 9px;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .banner-close {
+      width: 26px; height: 26px; border-radius: 50%;
+      background: rgba(255,255,255,0.06);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; color: #71717a;
+    }
+
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     PAGE 1 — COVER
+═══════════════════════════════════════════════════ -->
+<div class="page cover">
+  <div class="glow-tl"></div>
+  <div class="glow-br"></div>
+
+  <div class="cover-top">
+
+    <!-- Logo -->
+    <div class="logo-mark">
+      <div class="logo-icon">BB</div>
+      <div class="logo-text">Barber<span>Boost</span></div>
+    </div>
+
+    <!-- Headline -->
+    <div class="cover-headline">
+      <div class="cover-label">User Guide</div>
+      <div class="cover-title">Save to<br><span class="gold">Phone</span></div>
+      <div class="cover-subtitle">
+        A simple guide for barbers and clients — how to add your personal
+        booking app to any iPhone or Android home screen in seconds.
+      </div>
+
+      <div class="cover-divider"></div>
+
+      <!-- Banner preview mockup -->
+      <div class="banner-preview">
+        <div class="banner-icon">✂</div>
+        <div class="banner-copy">
+          <div class="banner-title">Add Your Barber to your phone</div>
+          <div class="banner-sub">Book faster next time with one tap.</div>
+        </div>
+        <div class="banner-btn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Save
+        </div>
+        <div class="banner-close">✕</div>
+      </div>
+
+      <!-- Stats -->
+      <div class="cover-stats">
+        <div class="stat-item">
+          <div class="stat-value">3</div>
+          <div class="stat-label">Taps to install</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">iOS</div>
+          <div class="stat-label">All browsers</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">Android</div>
+          <div class="stat-label">All browsers</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">Free</div>
+          <div class="stat-label">No app store</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Cover footer -->
+  <div class="cover-footer">
+    <div class="cover-footer-left">
+      <strong>BarberBoost</strong> · Personal Booking App Shortcut
+    </div>
+    <div class="cover-footer-right">
+      barberboost.app
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════
+     PAGE 2 — CLIENT GUIDE: iOS + ANDROID
+═══════════════════════════════════════════════════ -->
+<div class="page inner">
+  <div class="glow-tl"></div>
+
+  <!-- Page header -->
+  <div class="page-header">
+    <div class="page-header-logo">
+      <div class="page-header-icon">BB</div>
+      <div class="page-header-brand">Barber<span>Boost</span></div>
+    </div>
+    <div class="page-header-title">Save to Phone — Client Guide</div>
+  </div>
+
+  <!-- Intro -->
+  <div class="gold-bar"></div>
+  <div class="section-label">For Clients</div>
+  <div class="section-title">Add your barber to your <span class="gold">home screen</span></div>
+  <div class="section-intro">
+    When your barber sends you their booking link, follow these simple steps
+    to save it as an app icon — no App Store or Google Play needed.
+    Once saved, you can book instantly with a single tap.
+  </div>
+
+  <!-- Two columns: iOS + Android side by side (quick summary) -->
+  <div class="two-col">
+    <div class="col-card">
+      <div class="col-card-label ios"><div class="dot"></div> iPhone / iPad</div>
+      <div class="mini-step"><div class="mini-num">1</div><div class="mini-text">Open the booking link in <strong>Safari</strong></div></div>
+      <div class="mini-step"><div class="mini-num">2</div><div class="mini-text">Tap the <strong>Share</strong> icon at the bottom</div></div>
+      <div class="mini-step"><div class="mini-num">3</div><div class="mini-text">Tap <strong>Add to Home Screen</strong></div></div>
+      <div class="mini-step"><div class="mini-num">4</div><div class="mini-text">Tap <strong>Add</strong> to confirm</div></div>
+    </div>
+    <div class="col-card">
+      <div class="col-card-label android"><div class="dot"></div> Android Phone</div>
+      <div class="mini-step"><div class="mini-num">1</div><div class="mini-text">Open the booking link in <strong>Chrome</strong></div></div>
+      <div class="mini-step"><div class="mini-num">2</div><div class="mini-text">Tap the <strong>⋮</strong> menu (top-right)</div></div>
+      <div class="mini-step"><div class="mini-num">3</div><div class="mini-text">Tap <strong>Add to Home Screen</strong></div></div>
+      <div class="mini-step"><div class="mini-num">4</div><div class="mini-text">Tap <strong>Add</strong> to confirm</div></div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- iOS detailed steps -->
+  <div style="margin-bottom: 24px;">
+    <div class="platform-pill ios">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+      iPhone &amp; iPad (iOS)
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">Open the booking link in Safari</div>
+          <div class="step-desc">Your barber will send you a link — tap it to open. Make sure it opens in <span class="highlight">Safari</span>, not another browser, for the best experience.</div>
+        </div>
+        <div class="step-icon">🔗</div>
+        <div class="step-connector"></div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">Tap the Share button</div>
+          <div class="step-desc">Look for the <span class="highlight">⬆ Share</span> icon at the bottom centre of Safari. It looks like a box with an arrow pointing upward.</div>
+        </div>
+        <div class="step-icon">↑</div>
+        <div class="step-connector"></div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title">Tap "Add to Home Screen"</div>
+          <div class="step-desc">Scroll down the Share sheet until you see <span class="highlight">Add to Home Screen</span>. Tap it. You can edit the name if you wish.</div>
+        </div>
+        <div class="step-icon">＋</div>
+        <div class="step-connector"></div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-title">Tap "Add" to confirm</div>
+          <div class="step-desc">Tap <span class="highlight">Add</span> in the top-right corner. The booking app icon will appear on your home screen instantly.</div>
+        </div>
+        <div class="step-icon">✓</div>
+      </div>
+    </div>
+
+    <div class="tip-box">
+      <div class="tip-box-label">💡 Quick tip</div>
+      <p>Once saved, the app opens full-screen without the Safari browser bar — it feels just like a real app. You can also use <strong>Chrome on iPhone</strong> and tap the <strong>⋮ menu → Add to Home Screen</strong>.</p>
+    </div>
+  </div>
+
+  <!-- Page footer -->
+  <div class="page-footer">
+    <div class="pf-left">© BarberBoost · <span>barberboost.app</span></div>
+    <div class="pf-right">Page 2 of 3</div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════
+     PAGE 3 — ANDROID + BARBER GUIDE
+═══════════════════════════════════════════════════ -->
+<div class="page inner">
+  <div class="glow-br"></div>
+
+  <!-- Page header -->
+  <div class="page-header">
+    <div class="page-header-logo">
+      <div class="page-header-icon">BB</div>
+      <div class="page-header-brand">Barber<span>Boost</span></div>
+    </div>
+    <div class="page-header-title">Save to Phone — Android &amp; Barber Guide</div>
+  </div>
+
+  <!-- Android steps -->
+  <div style="margin-bottom: 28px;">
+    <div class="gold-bar"></div>
+    <div class="section-label">For Clients</div>
+    <div class="section-title" style="font-size:22px; margin-bottom: 6px;">Android <span class="gold">Instructions</span></div>
+    <div class="section-intro" style="margin-bottom: 18px;">
+      On Android, Chrome will often show a <strong style="color:white">"Save to Phone"</strong> banner automatically at the bottom of the page. You can also add it manually:
+    </div>
+
+    <div class="platform-pill android">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.523 15.341L15.5 11.6l-1.9 1.2-2.2-1.2-2.1 3.8C8.1 16.2 7.5 17.1 7.5 18c0 1.1.9 2 2 2h5c1.1 0 2-.9 2-2 0-.9-.6-1.8-1.6-2.1l.6-.6.023.041zM9.8 7.8l1.2-2 1.2 2h-2.4zM15.1 5c-.5-1.1-1.3-2-2.4-2.5L14 .7c.1-.2 0-.4-.2-.5l-.4.3-1.2 2.2C11.5 2.3 10.8 2 10 2s-1.5.3-2.2.7L6.6.5l-.4-.3c-.2.1-.3.3-.2.5l1.3 1.8C6.2 3 5.4 3.9 4.9 5H15.1zM12 4c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2z"/></svg>
+      Android (Chrome &amp; other browsers)
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">Open the booking link</div>
+          <div class="step-desc">Tap the link your barber sent you. It will open in your default browser (usually Chrome). You may see a <span class="highlight">Save to Phone</span> banner — if so, just tap it!</div>
+        </div>
+        <div class="step-icon">🔗</div>
+        <div class="step-connector"></div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">Tap the ⋮ menu</div>
+          <div class="step-desc">In Chrome, tap the <span class="highlight">⋮</span> three-dot menu in the top-right corner of your browser. In Samsung Internet, look for the <span class="highlight">☰</span> menu.</div>
+        </div>
+        <div class="step-icon">⋮</div>
+        <div class="step-connector"></div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title">Tap "Add to Home Screen"</div>
+          <div class="step-desc">Select <span class="highlight">Add to Home Screen</span> or <span class="highlight">Install App</span> from the menu. Either option works — you may see one or both.</div>
+        </div>
+        <div class="step-icon">＋</div>
+        <div class="step-connector"></div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-title">Tap "Add" to confirm</div>
+          <div class="step-desc">A prompt will appear — tap <span class="highlight">Add</span> to place the icon on your home screen. Done! Your barber's booking app is now one tap away.</div>
+        </div>
+        <div class="step-icon">✓</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Barber section -->
+  <div class="gold-bar"></div>
+  <div class="section-label">For Barbers</div>
+  <div class="section-title" style="font-size:22px; margin-bottom: 6px;">Help clients <span class="gold">save your app</span></div>
+  <div class="section-intro" style="margin-bottom: 16px;">
+    The more clients who save your booking page, the more repeat bookings you'll get.
+    Here's how to share your link and encourage clients to add it to their phone.
+  </div>
+
+  <!-- Share methods -->
+  <div class="share-grid">
+    <div class="share-card">
+      <span class="share-icon">💬</span>
+      <div class="share-name">WhatsApp</div>
+      <div class="share-desc">Send your booking link directly to clients in chat</div>
+    </div>
+    <div class="share-card">
+      <span class="share-icon">📸</span>
+      <div class="share-name">Instagram Bio</div>
+      <div class="share-desc">Add your booking URL to your Instagram bio link</div>
+    </div>
+    <div class="share-card">
+      <span class="share-icon">📱</span>
+      <div class="share-name">SMS / Text</div>
+      <div class="share-desc">Text the link to clients after their first appointment</div>
+    </div>
+  </div>
+
+  <!-- QR code guidance -->
+  <div class="qr-block">
+    <div class="qr-box">QR<br>Code<br>Here</div>
+    <div class="qr-text">
+      <div class="qr-title">Print your QR code in your shop</div>
+      <p>Display a QR code poster at your counter or in your waiting area. Clients scan it and go straight to your booking page — then save it to their phone with 3 taps.</p>
+      <div class="url-pill">barberboost.app/booking/your-slug</div>
+    </div>
+  </div>
+
+  <!-- Benefits -->
+  <div class="benefits">
+    <div class="benefit-row">
+      <div class="benefit-check">✓</div>
+      <div class="benefit-text"><strong>More repeat bookings</strong> — clients with your app on their phone are 3× more likely to rebook</div>
+    </div>
+    <div class="benefit-row">
+      <div class="benefit-check">✓</div>
+      <div class="benefit-text"><strong>One-tap booking</strong> — no searching, no typing URLs, just tap and book</div>
+    </div>
+    <div class="benefit-row">
+      <div class="benefit-check">✓</div>
+      <div class="benefit-text"><strong>Works on every phone</strong> — iPhone Safari, iPhone Chrome, Android Chrome, Samsung Internet — all supported</div>
+    </div>
+    <div class="benefit-row">
+      <div class="benefit-check">✓</div>
+      <div class="benefit-text"><strong>No app store needed</strong> — clients install it directly from your booking page in seconds</div>
+    </div>
+  </div>
+
+  <!-- Page footer -->
+  <div class="page-footer">
+    <div class="pf-left">© BarberBoost · <span>barberboost.app</span></div>
+    <div class="pf-right">Page 3 of 3</div>
+  </div>
+</div>
+
+</body>
+</html>
