@@ -87,6 +87,9 @@ export interface Subscription {
   current_period_end:      string | null
   cancel_at_period_end:    boolean
   trial_end:               string | null
+  scheduled_plan:          SubscriptionPlan | null
+  scheduled_price_id:      string | null
+  stripe_schedule_id:      string | null
   created_at:              string
   updated_at:              string
 }

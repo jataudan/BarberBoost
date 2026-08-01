@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react'
 import { Loader2, Check, Minus, Zap, ArrowRight, CreditCard, AlertCircle, XCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { PLANS, type PlanId } from '@/lib/stripe/plans'
+import { PLANS, PLAN_ORDER, type PlanId } from '@/lib/stripe/plans'
 import type { Subscription } from '@/types/database'
 
-const PLAN_ORDER: PlanId[] = ['free', 'starter', 'pro', 'empire']
+interface DowngradeViolation { resource: string; label: string; count: number; limit: number }
 
 const PLAN_ACCENT: Record<PlanId, { border: string; badge: string; cta: string; text: string; bg: string }> = {
   free:    { border: 'border-zinc-700',       badge: 'bg-zinc-700/60 text-zinc-300',          cta: 'bg-zinc-600 hover:bg-zinc-500',       text: 'text-zinc-400',   bg: 'bg-zinc-900/40'    },
@@ -30,8 +30,10 @@ export default function BillingPage() {
   const [loading, setLoading]   = useState(true)
   const [portalLoading, setPortalLoading] = useState(false)
   const [portalError, setPortalError]     = useState<string | null>(null)
-  const [upgrading, setUpgrading]         = useState<PlanId | null>(null)
-  const [upgradeError, setUpgradeError]   = useState<string | null>(null)
+  const [changing, setChanging]           = useState<PlanId | null>(null)
+  const [changeError, setChangeError]     = useState<string | null>(null)
+  const [violations, setViolations]       = useState<DowngradeViolation[] | null>(null)
+  const [cancelingChange, setCancelingChange] = useState(false)
   const [checkingOut, setCheckingOut]     = useState<PlanId | null>(null)
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
   const [urlError, setUrlError]           = useState<string | null>(null)
@@ -66,22 +68,42 @@ export default function BillingPage() {
   const currentPlanId: PlanId = (sub?.plan as PlanId | undefined) ?? 'free'
   const currentPlan = PLANS[currentPlanId]
 
-  async function handleUpgrade(planId: PlanId) {
-    setUpgrading(planId)
-    setUpgradeError(null)
+  async function handlePlanChange(planId: PlanId) {
+    setChanging(planId)
+    setChangeError(null)
+    setViolations(null)
     try {
-      const res  = await fetch('/api/stripe/upgrade', {
+      const res  = await fetch('/api/stripe/change-plan', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ planId }),
       })
-      const json = await res.json() as { success?: boolean; error?: string }
-      if (!res.ok) { setUpgradeError(json.error ?? 'Upgrade failed. Please try again.'); return }
+      const json = await res.json() as { success?: boolean; error?: string; violations?: DowngradeViolation[] }
+      if (!res.ok) {
+        setChangeError(json.error ?? 'Plan change failed. Please try again.')
+        if (json.violations) setViolations(json.violations)
+        return
+      }
       window.location.reload()
     } catch {
-      setUpgradeError('Network error. Please try again.')
+      setChangeError('Network error. Please try again.')
     } finally {
-      setUpgrading(null)
+      setChanging(null)
+    }
+  }
+
+  async function handleCancelScheduledChange() {
+    setCancelingChange(true)
+    setChangeError(null)
+    try {
+      const res  = await fetch('/api/stripe/cancel-scheduled-change', { method: 'POST' })
+      const json = await res.json() as { success?: boolean; error?: string }
+      if (!res.ok) { setChangeError(json.error ?? 'Could not cancel the scheduled change.'); return }
+      window.location.reload()
+    } catch {
+      setChangeError('Network error. Please try again.')
+    } finally {
+      setCancelingChange(false)
     }
   }
 
@@ -150,7 +172,7 @@ export default function BillingPage() {
                   sub.status === 'trialing' ? 'bg-blue-400/10 text-blue-400' :
                   'bg-red-500/10 text-red-400'
                 }`}>{sub.status.charAt(0).toUpperCase() + sub.status.slice(1)}</span>
-                {sub.current_period_end && (
+                {sub.current_period_end && !sub.scheduled_plan && (
                   <span className="text-xs text-zinc-500">
                     {sub.cancel_at_period_end ? 'Cancels' : 'Renews'} {fmtDate(sub.current_period_end)}
                   </span>
@@ -179,12 +201,36 @@ export default function BillingPage() {
             Manage Billing
           </button>
         )}
+
+        {(sub?.scheduled_plan || sub?.cancel_at_period_end) && sub?.current_period_end && (
+          <div className="mt-4 flex items-center justify-between gap-3 flex-wrap bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3">
+            <p className="text-sm text-zinc-300">
+              {sub.scheduled_plan && sub.scheduled_plan !== 'free'
+                ? <>Your plan switches to <span className="font-semibold text-white">{PLANS[sub.scheduled_plan as PlanId].name}</span> on {fmtDate(sub.current_period_end)}.</>
+                : <>Your subscription cancels on {fmtDate(sub.current_period_end)} — you&apos;ll drop to the Free plan.</>}
+            </p>
+            <button type="button" onClick={handleCancelScheduledChange} disabled={cancelingChange}
+              className="flex items-center gap-1.5 bg-white/[0.05] hover:bg-white/[0.08] disabled:opacity-50 text-white text-xs font-semibold rounded-lg px-3 py-2 transition-colors">
+              {cancelingChange ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
+              Cancel this change
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Inline upgrade / checkout errors */}
-      {upgradeError && (
-        <div className="flex items-center gap-2.5 bg-red-500/[0.08] border border-red-500/20 rounded-xl px-4 py-3 text-sm text-red-400">
-          <AlertCircle className="w-4 h-4 shrink-0" />{upgradeError}
+      {/* Inline plan-change / checkout errors */}
+      {changeError && (
+        <div className="bg-red-500/[0.08] border border-red-500/20 rounded-xl px-4 py-3 text-sm text-red-400 space-y-2">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="w-4 h-4 shrink-0" />{changeError}
+          </div>
+          {violations && violations.length > 0 && (
+            <ul className="pl-6 list-disc space-y-0.5 text-red-400/90 text-xs">
+              {violations.map(v => (
+                <li key={v.resource}>{v.count} {v.label} (limit {v.limit})</li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
       {checkoutError && (
@@ -214,8 +260,10 @@ export default function BillingPage() {
           {PLAN_ORDER.map(planId => {
             const plan     = PLANS[planId]
             const accent   = PLAN_ACCENT[planId]
-            const isCurrent = planId === currentPlanId
-            const isUpgrade = PLAN_ORDER.indexOf(planId) > PLAN_ORDER.indexOf(currentPlanId)
+            const isCurrent  = planId === currentPlanId
+            const isUpgrade  = PLAN_ORDER.indexOf(planId) > PLAN_ORDER.indexOf(currentPlanId)
+            const isDowngrade = PLAN_ORDER.indexOf(planId) < PLAN_ORDER.indexOf(currentPlanId)
+            const isScheduledTarget = sub?.scheduled_plan === planId || (planId === 'free' && !!sub?.cancel_at_period_end && !sub?.scheduled_plan)
 
             return (
               <div key={planId}
@@ -258,14 +306,19 @@ export default function BillingPage() {
                   ))}
                 </ul>
 
-                {isUpgrade && (
+                {isScheduledTarget && !isCurrent && (
+                  <div className="flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-semibold bg-white/[0.04] text-zinc-400">
+                    <Check className="w-3.5 h-3.5" /> Scheduled
+                  </div>
+                )}
+                {isUpgrade && !isScheduledTarget && (
                   sub?.stripe_customer_id ? (
-                    // Already a paid subscriber — update subscription in-place
+                    // Already a paid subscriber — schedule the change for next renewal
                     <button type="button"
-                      onClick={() => handleUpgrade(planId as PlanId)}
-                      disabled={upgrading === planId}
+                      onClick={() => handlePlanChange(planId as PlanId)}
+                      disabled={changing === planId}
                       className={`w-full flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-colors disabled:opacity-60 ${accent.cta}`}>
-                      {upgrading === planId
+                      {changing === planId
                         ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         : <Zap className="w-3.5 h-3.5" />}
                       Upgrade to {plan.name}
@@ -284,6 +337,17 @@ export default function BillingPage() {
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   )
+                )}
+                {isDowngrade && !isScheduledTarget && sub?.stripe_customer_id && (
+                  <button type="button"
+                    onClick={() => handlePlanChange(planId as PlanId)}
+                    disabled={changing === planId}
+                    className="w-full flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-colors disabled:opacity-60 bg-white/[0.06] hover:bg-white/[0.1] text-zinc-200">
+                    {changing === planId
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      : null}
+                    {planId === 'free' ? 'Switch to Free' : `Downgrade to ${plan.name}`}
+                  </button>
                 )}
                 {isCurrent && (
                   <div className="flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-semibold bg-white/[0.04] text-zinc-500">

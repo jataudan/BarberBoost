@@ -101,6 +101,9 @@ CREATE TABLE subscriptions (
   current_period_end      TIMESTAMPTZ,
   cancel_at_period_end    BOOLEAN             DEFAULT FALSE,
   trial_end               TIMESTAMPTZ,
+  scheduled_plan          subscription_plan,
+  scheduled_price_id      TEXT,
+  stripe_schedule_id      TEXT,
   created_at              TIMESTAMPTZ         DEFAULT NOW(),
   updated_at              TIMESTAMPTZ         DEFAULT NOW()
 );

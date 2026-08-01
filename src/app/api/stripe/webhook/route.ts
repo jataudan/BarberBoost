@@ -171,22 +171,28 @@ export async function POST(request: Request) {
       break
     }
 
-    case 'customer.subscription.updated':
-    case 'customer.subscription.deleted': {
+    case 'customer.subscription.updated': {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sub     = event.data.object as any
       const priceId = sub.items.data[0].price.id
       const plan    = getPlanByPriceId(priceId)
 
-      console.log(`[webhook] ${event.type} subId=${sub.id} priceId=${priceId} resolved plan=${plan} status=${sub.status}`)
+      console.log(`[webhook] ${event.type} subId=${sub.id} priceId=${priceId} resolved plan=${plan} status=${sub.status} schedule=${sub.schedule ?? 'none'}`)
 
       // IMPORTANT: if the price ID is not in our plan map (e.g. env vars mismatch),
       // do NOT fall back to 'free' — that would silently downgrade paying customers.
       // Only update the plan when we can positively identify it.
       const planUpdate = plan ? { plan } : {}
 
+      // Once Stripe releases the schedule (a scheduled plan change has taken effect,
+      // or it was cancelled/released outside our app), clear our pending-change columns.
+      const scheduleUpdate = sub.schedule
+        ? {}
+        : { scheduled_plan: null, scheduled_price_id: null, stripe_schedule_id: null }
+
       const { error: subUpdateErr } = await supabase.from('subscriptions').update({
         ...planUpdate,
+        ...scheduleUpdate,
         status:               sub.status,
         stripe_price_id:      priceId,
         current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
@@ -196,6 +202,28 @@ export async function POST(request: Request) {
 
       if (subUpdateErr) console.error(`[webhook] ${event.type} update error:`, subUpdateErr)
       else if (!plan) console.warn(`[webhook] ${event.type}: priceId ${priceId} not in PLANS — status updated but plan left unchanged`)
+      break
+    }
+
+    case 'customer.subscription.deleted': {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sub = event.data.object as any
+
+      console.log(`[webhook] ${event.type} subId=${sub.id} status=${sub.status}`)
+
+      const { error: subDeleteErr } = await supabase.from('subscriptions').update({
+        plan:                  'free',
+        status:                sub.status,
+        stripe_price_id:       null,
+        cancel_at_period_end:  false,
+        scheduled_plan:        null,
+        scheduled_price_id:    null,
+        stripe_schedule_id:    null,
+        current_period_start:  new Date(sub.current_period_start * 1000).toISOString(),
+        current_period_end:    new Date(sub.current_period_end   * 1000).toISOString(),
+      }).eq('stripe_subscription_id', sub.id)
+
+      if (subDeleteErr) console.error(`[webhook] ${event.type} update error:`, subDeleteErr)
       break
     }
 
