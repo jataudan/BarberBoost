@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { lowStockAlert } from '@/lib/email/templates'
+import { requireWriteAccess, readOnlyResponseBody } from '@/lib/entitlement'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://barberboost.app'
 
@@ -96,6 +97,9 @@ export async function POST(request: NextRequest) {
     .from('shops').select('id, name').eq('id', shop_id).eq('owner_id', user.id).single()
   if (!shop) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
+  const gate = await requireWriteAccess(shop.id)
+  if (!gate.ok) return NextResponse.json(readOnlyResponseBody(gate.entitlement), { status: 403 })
+
   const qty       = quantity            ?? 0
   const threshold = low_stock_threshold ?? 5
 
@@ -152,6 +156,9 @@ export async function PATCH(request: NextRequest) {
     .from('shops').select('id, name').eq('id', existing.shop_id).eq('owner_id', user.id).single()
   if (!shop) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
+  const gate = await requireWriteAccess(shop.id)
+  if (!gate.ok) return NextResponse.json(readOnlyResponseBody(gate.entitlement), { status: 403 })
+
   // ── Stock adjustment ────────────────────────────────────────────────────
   if (adjust) {
     if (typeof delta !== 'number') {
@@ -205,6 +212,9 @@ export async function DELETE(request: NextRequest) {
   const { data: shop } = await supabase
     .from('shops').select('id').eq('id', existing.shop_id).eq('owner_id', user.id).single()
   if (!shop) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const gate = await requireWriteAccess(shop.id)
+  if (!gate.ok) return NextResponse.json(readOnlyResponseBody(gate.entitlement), { status: 403 })
 
   const { error } = await supabase.from('inventory').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

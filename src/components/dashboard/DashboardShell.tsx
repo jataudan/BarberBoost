@@ -2,20 +2,34 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { AlertTriangle, XCircle } from 'lucide-react'
+import { AlertTriangle, Clock, Lock } from 'lucide-react'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { BottomNav } from './BottomNav'
-import type { Shop, Subscription } from '@/types/database'
+import type { Shop } from '@/types/database'
 import type { User } from '@supabase/supabase-js'
 import type { PlanId } from '@/lib/stripe/plans'
+import type { Entitlement } from '@/lib/entitlement'
 
 interface DashboardShellProps {
   user:              User
   shop:              Shop | null
-  subscription:      Subscription | null
+  entitlement:       Entitlement | null
   notificationCount: number
   children:          React.ReactNode
+}
+
+/** neutral until day 20, amber from day 23, red from day 27 of a 30-day trial */
+function trialBannerTone(daysRemaining: number): 'neutral' | 'amber' | 'red' {
+  if (daysRemaining <= 3) return 'red'
+  if (daysRemaining <= 7) return 'amber'
+  return 'neutral'
+}
+
+const READ_ONLY_COPY: Record<NonNullable<Entitlement['readOnlyReason']>, { message: string; cta: string }> = {
+  paused:           { message: 'Your trial ended without a payment method. Your data is safe — add a card to reactivate.', cta: 'Reactivate' },
+  canceled:         { message: 'Your subscription has ended. Your data is safe and read-only until you resubscribe.',      cta: 'Reactivate' },
+  past_due_expired: { message: 'Your account is read-only after a failed payment. Update your card to restore access.',   cta: 'Update Card' },
 }
 
 function deriveInitials(text: string): string {
@@ -28,13 +42,13 @@ function deriveInitials(text: string): string {
 export function DashboardShell({
   user,
   shop,
-  subscription,
+  entitlement,
   notificationCount,
   children,
 }: DashboardShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
 
-  const plan = ((subscription?.plan as PlanId | undefined) ?? 'free') satisfies PlanId
+  const plan = (entitlement?.plan ?? 'free') satisfies PlanId
 
   // Persist shop context to localStorage so client-only pages (bookings, etc.) can read it
   useEffect(() => {
@@ -79,8 +93,36 @@ export function DashboardShell({
           notificationCount={notificationCount}
           onMenuOpen={() => setMobileOpen(true)}
         />
-        {/* Subscription health banners */}
-        {subscription?.status === 'past_due' && (
+        {/* Subscription health banners — driven entirely by getEntitlement(), no scattered status checks */}
+        {entitlement?.state === 'trialing' && entitlement.trialDaysRemaining != null && (() => {
+          const tone = trialBannerTone(entitlement.trialDaysRemaining)
+          const toneClasses = {
+            neutral: 'bg-white/[0.04] border-white/10 text-zinc-300',
+            amber:   'bg-amber-400/[0.08] border-amber-400/20 text-amber-300',
+            red:     'bg-red-500/[0.08] border-red-500/20 text-red-300',
+          }[tone]
+          const btnClasses = {
+            neutral: 'bg-white/10 hover:bg-white/15 text-white',
+            amber:   'bg-amber-400 hover:bg-amber-300 text-[#0a0a0a]',
+            red:     'bg-red-500 hover:bg-red-400 text-white',
+          }[tone]
+          return (
+            <div className={`flex items-center gap-3 border-b px-4 py-3 text-sm flex-shrink-0 ${toneClasses}`}>
+              <Clock className="w-4 h-4 flex-shrink-0" />
+              <span className="flex-1">
+                {entitlement.trialDaysRemaining === 0
+                  ? 'Your free trial ends today.'
+                  : `${entitlement.trialDaysRemaining} day${entitlement.trialDaysRemaining === 1 ? '' : 's'} left in your free trial.`}
+              </span>
+              <Link href="/settings/billing"
+                className={`flex-shrink-0 font-bold text-xs px-3 py-1.5 rounded-lg transition-colors ${btnClasses}`}>
+                Choose your plan
+              </Link>
+            </div>
+          )
+        })()}
+
+        {entitlement?.state === 'past_due' && (
           <div className="flex items-center gap-3 bg-yellow-400/[0.08] border-b border-yellow-400/20 px-4 py-3 text-sm text-yellow-300 flex-shrink-0">
             <AlertTriangle className="w-4 h-4 flex-shrink-0 text-yellow-400" />
             <span className="flex-1">
@@ -92,15 +134,16 @@ export function DashboardShell({
             </Link>
           </div>
         )}
-        {(subscription?.status === 'canceled' || subscription?.status === 'inactive') && subscription.plan !== 'free' && (
+
+        {entitlement?.isReadOnly && entitlement.readOnlyReason && (
           <div className="flex items-center gap-3 bg-red-500/[0.08] border-b border-red-500/20 px-4 py-3 text-sm text-red-300 flex-shrink-0">
-            <XCircle className="w-4 h-4 flex-shrink-0 text-red-400" />
+            <Lock className="w-4 h-4 flex-shrink-0 text-red-400" />
             <span className="flex-1">
-              Your subscription has ended. Your account has been downgraded to the free plan.
+              {READ_ONLY_COPY[entitlement.readOnlyReason].message}
             </span>
             <Link href="/settings/billing"
               className="flex-shrink-0 bg-red-500 hover:bg-red-400 text-white font-bold text-xs px-3 py-1.5 rounded-lg transition-colors">
-              Reactivate
+              {READ_ONLY_COPY[entitlement.readOnlyReason].cta}
             </Link>
           </div>
         )}

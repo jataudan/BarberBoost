@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/campaigns",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/past-due-sweep",
+      "schedule": "0 3 * * *"
     }
   ],
   "functions": {
@@ -24,6 +28,9 @@
       "maxDuration": 60
     },
     "src/app/api/cron/campaigns/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/past-due-sweep/route.ts": {
       "maxDuration": 60
     }
   },

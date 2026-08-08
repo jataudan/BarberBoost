@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { PLANS } from '@/lib/stripe/plans'
 import type { PlanId } from '@/lib/stripe/plans'
+import { requireWriteAccess, readOnlyResponseBody } from '@/lib/entitlement'
 
 const MAX_ROWS = 500
 
@@ -88,6 +89,9 @@ export async function POST(request: NextRequest) {
     .eq('owner_id', user.id)
     .single()
   if (!shop) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const gate = await requireWriteAccess(shop.id)
+  if (!gate.ok) return NextResponse.json(readOnlyResponseBody(gate.entitlement), { status: 403 })
 
   // Plan limit
   const { data: sub } = await supabase

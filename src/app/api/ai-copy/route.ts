@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { rateLimit } from '@/lib/rate-limit'
+import { requireWriteAccess, readOnlyResponseBody } from '@/lib/entitlement'
 
 const SEGMENT_LABELS: Record<string, string> = {
   all:      'all existing clients',
@@ -45,6 +46,11 @@ export async function POST(request: NextRequest) {
       { status: 403 }
     )
   }
+
+  const { data: shop } = await supabase.from('shops').select('id').eq('owner_id', user.id).single()
+  if (!shop) return NextResponse.json({ error: 'Shop not found' }, { status: 404 })
+  const gate = await requireWriteAccess(shop.id)
+  if (!gate.ok) return NextResponse.json(readOnlyResponseBody(gate.entitlement), { status: 403 })
 
   // Rate limit per user: 30 generations per hour
   const rl = rateLimit(`ai_copy:${user.id}`, 30, 3600)

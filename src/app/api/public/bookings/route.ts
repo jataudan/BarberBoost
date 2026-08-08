@@ -6,6 +6,7 @@ import { bookingReceived, barberBookingAlert, type BookingEmailData } from '@/li
 import { format, parseISO } from 'date-fns'
 import { rateLimit } from '@/lib/rate-limit'
 import { sendWhatsApp, buildBarberBookingText } from '@/lib/whatsapp'
+import { requireWriteAccess, readOnlyResponseBody } from '@/lib/entitlement'
 
 function fmtTime12h(t: string): string {
   const [h, m] = t.split(':').map(Number)
@@ -61,6 +62,11 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (!shop) return NextResponse.json({ error: 'Shop not found' }, { status: 404 })
+
+  // A paused/canceled shop isn't being actively managed — stop taking new
+  // customer bookings for it too, not just barber-side dashboard mutations.
+  const gate = await requireWriteAccess(shop.id)
+  if (!gate.ok) return NextResponse.json(readOnlyResponseBody(gate.entitlement), { status: 403 })
 
   // ── Verify service belongs to shop and is active ─────────────────────────
   const { data: service } = await supabase

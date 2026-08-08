@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { PLANS } from '@/lib/stripe/plans'
 import type { PlanId } from '@/lib/stripe/plans'
 import { bookingConfirmation, bookingCancellation, type BookingEmailData } from '@/lib/email/templates'
+import { requireWriteAccess, readOnlyResponseBody } from '@/lib/entitlement'
 import { format } from 'date-fns'
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -117,6 +118,9 @@ export async function POST(request: NextRequest) {
     .eq('owner_id', user.id)
     .single()
   if (!shop) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const gate = await requireWriteAccess(shop.id)
+  if (!gate.ok) return NextResponse.json(readOnlyResponseBody(gate.entitlement), { status: 403 })
 
   // ── Plan limit check ──────────────────────────────────────────────────
   const { data: sub } = await supabase
@@ -256,6 +260,9 @@ export async function PATCH(request: NextRequest) {
     .single()
   if (!shop) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
+  const gate = await requireWriteAccess(shop.id)
+  if (!gate.ok) return NextResponse.json(readOnlyResponseBody(gate.entitlement), { status: 403 })
+
   const updates: Record<string, unknown> = {}
   if (status !== undefined)         updates.status         = status
   if (notes !== undefined)          updates.notes          = notes
@@ -327,6 +334,9 @@ export async function DELETE(request: NextRequest) {
 
   const { data: shop } = await supabase.from('shops').select('id').eq('id', existing.shop_id).eq('owner_id', user.id).single()
   if (!shop) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const gate = await requireWriteAccess(shop.id)
+  if (!gate.ok) return NextResponse.json(readOnlyResponseBody(gate.entitlement), { status: 403 })
 
   const { error } = await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

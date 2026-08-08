@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { PLANS } from '@/lib/stripe/plans'
 import type { PlanId } from '@/lib/stripe/plans'
+import { requireWriteAccess, readOnlyResponseBody } from '@/lib/entitlement'
 
 // ── GET ───────────────────────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
@@ -41,6 +42,9 @@ export async function POST(request: NextRequest) {
 
   const { data: shop } = await supabase.from('shops').select('id').eq('id', shop_id).eq('owner_id', user.id).single()
   if (!shop) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const gate = await requireWriteAccess(shop.id)
+  if (!gate.ok) return NextResponse.json(readOnlyResponseBody(gate.entitlement), { status: 403 })
 
   // Plan limit check (campaigns per month)
   const { data: sub } = await supabase.from('subscriptions').select('plan')
@@ -97,6 +101,9 @@ export async function PATCH(request: NextRequest) {
   const { data: shop } = await supabase.from('shops').select('id').eq('id', existing.shop_id).eq('owner_id', user.id).single()
   if (!shop) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
+  const gate = await requireWriteAccess(shop.id)
+  if (!gate.ok) return NextResponse.json(readOnlyResponseBody(gate.entitlement), { status: 403 })
+
   // Explicit whitelist — prevents mass-assignment of shop_id, created_at, etc.
   const ALLOWED = ['name', 'type', 'subject', 'content', 'target_segment', 'status', 'scheduled_at', 'sent_count', 'open_rate', 'sent_at']
   const safeUpdates: Record<string, unknown> = {}
@@ -122,6 +129,9 @@ export async function DELETE(request: NextRequest) {
   if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   const { data: shop } = await supabase.from('shops').select('id').eq('id', existing.shop_id).eq('owner_id', user.id).single()
   if (!shop) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const gate = await requireWriteAccess(shop.id)
+  if (!gate.ok) return NextResponse.json(readOnlyResponseBody(gate.entitlement), { status: 403 })
 
   const { error } = await supabase.from('campaigns').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

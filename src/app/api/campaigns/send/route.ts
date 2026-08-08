@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { executeCampaignSend } from '@/lib/campaigns'
 import type { Campaign } from '@/types/database'
+import { requireWriteAccess, readOnlyResponseBody } from '@/lib/entitlement'
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
@@ -28,6 +29,9 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (!shop) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const gate = await requireWriteAccess(shop.id)
+  if (!gate.ok) return NextResponse.json(readOnlyResponseBody(gate.entitlement), { status: 403 })
 
   if (!['draft', 'scheduled'].includes(campaign.status)) {
     return NextResponse.json(

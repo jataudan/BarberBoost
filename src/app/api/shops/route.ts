@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { requireWriteAccess, readOnlyResponseBody } from '@/lib/entitlement'
 
 // ── GET — fetch the authenticated user's shop ─────────────────────────────
 export async function GET() {
@@ -26,6 +27,9 @@ export async function PATCH(request: NextRequest) {
   // Confirm the shop belongs to the caller
   const { data: existing } = await supabase.from('shops').select('id').eq('owner_id', user.id).single()
   if (!existing) return NextResponse.json({ error: 'Shop not found' }, { status: 404 })
+
+  const gate = await requireWriteAccess(existing.id)
+  if (!gate.ok) return NextResponse.json(readOnlyResponseBody(gate.entitlement), { status: 403 })
 
   const body = await request.json()
   // Strip fields that must not be updated via this route
