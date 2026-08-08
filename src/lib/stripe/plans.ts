@@ -171,6 +171,13 @@ export type PlanLimits = typeof PLANS[PlanId]['limits'];
 /** Canonical low-to-high plan ordering, used to determine upgrade vs. downgrade direction. */
 export const PLAN_ORDER: PlanId[] = ['free', 'starter', 'pro', 'empire'];
 
+/**
+ * The plan a new 30-day no-card trial is created on. We want trialists to
+ * experience the plan we most want them to buy, not the cheapest — read this
+ * everywhere a trial is created rather than hardcoding a price ID.
+ */
+export const TRIAL_PLAN_ID: PlanId = 'pro';
+
 /** Returns the PlanId whose monthly or annual priceId matches the given Stripe price ID, or null. */
 export function getPlanByPriceId(priceId: string): PlanId | null {
   for (const [key, plan] of Object.entries(PLANS)) {

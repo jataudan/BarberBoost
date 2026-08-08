@@ -682,3 +682,65 @@ CREATE TRIGGER trg_notify_new_booking
   AFTER INSERT ON bookings
   FOR EACH ROW EXECUTE FUNCTION notify_new_booking();
 
+-- ============================================================
+-- 5. 30-day no-card trial + nurture email infrastructure
+-- ============================================================
+
+-- ── 5a. Trial lifecycle columns on subscriptions ────────────────────────────
+-- Stripe is the source of truth for all of these — written only by webhook
+-- handlers (or, for trial_start/trial_end/trial_email_normalised, once at
+-- signup time immediately after Stripe returns the created IDs).
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS trial_start              TIMESTAMPTZ;
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS paused_at                TIMESTAMPTZ;
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS converted_at             TIMESTAMPTZ;
+-- Normalised (lowercased, +suffix and Gmail dots stripped) owner email at the
+-- moment a trial was started — a real column (not generated, since it depends
+-- on auth.users which generated columns can't reference), backed by a partial
+-- unique index so the trial-abuse guard holds under concurrent signups.
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS trial_email_normalised   TEXT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_trial_email_once
+  ON subscriptions (trial_email_normalised)
+  WHERE trial_start IS NOT NULL;
+
+-- ── 5b. New subscription_status values ──────────────────────────────────────
+-- paused: trial ended with no payment method (Stripe's own `paused` status).
+-- incomplete/unpaid: stored verbatim from Stripe for debuggability, even
+-- though the app treats them the same as past_due behaviourally.
+ALTER TYPE subscription_status ADD VALUE IF NOT EXISTS 'paused';
+ALTER TYPE subscription_status ADD VALUE IF NOT EXISTS 'incomplete';
+ALTER TYPE subscription_status ADD VALUE IF NOT EXISTS 'unpaid';
+
+-- ── 5c. Stripe webhook event dedupe ──────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS stripe_events (
+  id            TEXT        PRIMARY KEY,   -- Stripe event id (evt_...)
+  type          TEXT        NOT NULL,
+  processed_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ── 5d. Nurture email idempotency + preferences ─────────────────────────────
+CREATE TABLE IF NOT EXISTS email_sends (
+  id                  UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
+  shop_id             UUID        REFERENCES shops(id) ON DELETE CASCADE NOT NULL,
+  email_key           TEXT        NOT NULL,   -- e.g. 'welcome', 'trial_ending'
+  sent_at             TIMESTAMPTZ,
+  resend_message_id   TEXT,
+  created_at          TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (shop_id, email_key)
+);
+
+CREATE TABLE IF NOT EXISTS email_preferences (
+  shop_id                 UUID        REFERENCES shops(id) ON DELETE CASCADE PRIMARY KEY,
+  lifecycle_opted_out_at  TIMESTAMPTZ,
+  marketing_opted_in_at   TIMESTAMPTZ,
+  updated_at              TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_email_sends_shop_id ON email_sends(shop_id);
+
+ALTER TABLE email_sends       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE email_preferences ENABLE ROW LEVEL SECURITY;
+
+-- No owner-facing policies — these tables are only ever read/written by
+-- server-side code using the service-role client (cron + webhook handlers).
+

@@ -8,7 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Eye, EyeOff, Loader2, Scissors, AlertCircle, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { PLANS, type PlanId } from '@/lib/stripe/plans'
+import { PLANS, TRIAL_PLAN_ID, type PlanId } from '@/lib/stripe/plans'
 
 const PAID_PLANS: PlanId[] = ['starter', 'pro', 'empire']
 
@@ -104,17 +104,42 @@ function SignupForm({ searchParams }: { searchParams: SearchParamsProp }) {
       return
     }
 
-    // Non-blocking: send welcome email + internal alert
-    fetch('/api/auth/signup', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({
-        email:    data.email,
-        fullName: data.full_name,
-        shopName: data.shop_name,
-        plan:     intendedPlan ?? null,
-      }),
-    }).catch(() => {})
+    // Send welcome email + internal alert, and — when no plan was picked —
+    // provision the 30-day no-card trial. Awaited (unlike before) so we can
+    // react to a blocked repeat trial rather than silently redirecting.
+    const startTrial = !intendedPlan
+    let trialGranted = true
+    let trialBlockedReason: string | null = null
+    try {
+      const res  = await fetch('/api/auth/signup', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          email:      data.email,
+          fullName:   data.full_name,
+          shopName:   data.shop_name,
+          plan:       intendedPlan ?? null,
+          userId:     signUpData.user?.id ?? null,
+          startTrial,
+        }),
+      })
+      const json = await res.json() as { trialGranted?: boolean; reason?: string }
+      if (startTrial && json.trialGranted === false) {
+        trialGranted      = false
+        trialBlockedReason = json.reason ?? null
+      }
+    } catch {
+      // Email/trial provisioning failing must never block signup itself.
+    }
+
+    if (startTrial && !trialGranted) {
+      setServerError(
+        trialBlockedReason === 'trial_already_used'
+          ? "You've already used a free trial with this email. Choose a plan below to continue."
+          : 'Could not start your free trial — please choose a plan below, or contact support.'
+      )
+      return
+    }
 
     // signUpData.session is set when Supabase "Confirm email" is OFF (auto-confirm).
     // In that case redirect immediately — no email link needed.
@@ -123,7 +148,7 @@ function SignupForm({ searchParams }: { searchParams: SearchParamsProp }) {
         window.location.href =
           `/api/stripe/checkout?plan=${intendedPlan}` + (isAnnual ? '&billing=annual' : '')
       } else {
-        router.push('/dashboard?welcome=1')
+        router.push('/dashboard?trial=1')
         router.refresh()
       }
       return
@@ -154,7 +179,7 @@ function SignupForm({ searchParams }: { searchParams: SearchParamsProp }) {
           ) : (
             <p className="text-zinc-500 text-sm leading-relaxed">
               We&apos;ve sent a confirmation link to your inbox.
-              Click it to activate your account and access your free plan.
+              Click it to activate your account and start your 30-day free trial.
             </p>
           )}
         </div>
@@ -178,10 +203,10 @@ function SignupForm({ searchParams }: { searchParams: SearchParamsProp }) {
       {/* Header */}
       <div className="space-y-1">
         <h1 className="font-[family-name:var(--font-heading)] text-4xl tracking-widest text-white leading-none">
-          {intendedPlan ? 'CREATE ACCOUNT' : 'START FOR FREE'}
+          {intendedPlan ? 'CREATE ACCOUNT' : 'START YOUR FREE TRIAL'}
         </h1>
         <p className="text-zinc-500 text-sm">
-          {intendedPlan ? 'One step away from activating your plan' : 'No credit card required · Cancel any time'}
+          {intendedPlan ? 'One step away from activating your plan' : 'No credit card required · 30 days free'}
         </p>
       </div>
 
@@ -205,9 +230,9 @@ function SignupForm({ searchParams }: { searchParams: SearchParamsProp }) {
         <div className="flex items-start gap-3 bg-[#c9a84c]/8 border border-[#c9a84c]/20 rounded-xl px-4 py-3">
           <span className="text-lg leading-none">✂️</span>
           <div>
-            <p className="text-sm font-semibold text-[#c9a84c]">Free Plan — No Card Needed</p>
+            <p className="text-sm font-semibold text-[#c9a84c]">30-Day Free Trial — No Card Needed</p>
             <p className="text-xs text-zinc-500 mt-0.5">
-              Get started immediately. Upgrade to unlock more bookings, staff, and features.
+              Full access to the {PLANS[TRIAL_PLAN_ID].name} plan for 30 days. Add a card any time — your trial isn&apos;t cut short.
             </p>
           </div>
         </div>

@@ -9,7 +9,7 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 
 // ── Enum mirrors ────────────────────────────────────────────
 export type SubscriptionPlan   = 'free' | 'starter' | 'pro' | 'empire'
-export type SubscriptionStatus = 'active' | 'canceled' | 'past_due' | 'trialing' | 'inactive'
+export type SubscriptionStatus = 'active' | 'canceled' | 'past_due' | 'trialing' | 'inactive' | 'paused' | 'incomplete' | 'unpaid'
 export type BookingStatus      = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no_show'
 export type PaymentMethod      = 'card' | 'cash' | 'bank_transfer'
 export type AdminStatus        = 'active' | 'suspended' | 'disabled'
@@ -86,11 +86,37 @@ export interface Subscription {
   current_period_start:    string | null
   current_period_end:      string | null
   cancel_at_period_end:    boolean
+  trial_start:             string | null
   trial_end:               string | null
+  paused_at:               string | null
+  converted_at:            string | null
+  trial_email_normalised:  string | null
   scheduled_plan:          SubscriptionPlan | null
   scheduled_price_id:      string | null
   stripe_schedule_id:      string | null
   created_at:              string
+  updated_at:              string
+}
+
+export interface StripeEvent {
+  id:           string
+  type:         string
+  processed_at: string
+}
+
+export interface EmailSend {
+  id:                 string
+  shop_id:             string
+  email_key:           string
+  sent_at:             string | null
+  resend_message_id:   string | null
+  created_at:           string
+}
+
+export interface EmailPreferences {
+  shop_id:                 string
+  lifecycle_opted_out_at:  string | null
+  marketing_opted_in_at:   string | null
   updated_at:              string
 }
 
@@ -302,6 +328,16 @@ export type NotificationInsert = Omit<Notification,
   'id' | 'created_at'
 >
 
+export type StripeEventInsert = StripeEvent
+
+export type EmailSendInsert = Omit<EmailSend,
+  'id' | 'created_at'
+>
+
+export type EmailPreferencesInsert = Omit<EmailPreferences,
+  'updated_at'
+>
+
 // ============================================================
 // UPDATE TYPES  (all fields optional except identity)
 // ============================================================
@@ -318,6 +354,8 @@ export type ReviewUpdate          = Partial<ReviewInsert>
 export type PlatformReviewUpdate  = Partial<PlatformReviewInsert>
 export type NotificationUpdate    = Partial<NotificationInsert>
 export type HaircutStyleUpdate    = Partial<HaircutStyleInsert>
+export type EmailSendUpdate         = Partial<EmailSendInsert>
+export type EmailPreferencesUpdate  = Partial<EmailPreferencesInsert>
 
 // ============================================================
 // JOINED / EXTENDED TYPES
@@ -410,6 +448,21 @@ export interface Database {
         Row:    HaircutStyle
         Insert: HaircutStyleInsert
         Update: HaircutStyleUpdate
+      }
+      stripe_events: {
+        Row:    StripeEvent
+        Insert: StripeEventInsert
+        Update: never
+      }
+      email_sends: {
+        Row:    EmailSend
+        Insert: EmailSendInsert
+        Update: EmailSendUpdate
+      }
+      email_preferences: {
+        Row:    EmailPreferences
+        Insert: EmailPreferencesInsert
+        Update: EmailPreferencesUpdate
       }
     }
     Views:     Record<string, never>
