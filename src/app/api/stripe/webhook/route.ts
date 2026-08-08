@@ -1,12 +1,14 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { headers } from 'next/headers'
 import { getStripe } from '@/lib/stripe/config'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getPlanByPriceId, PLANS } from '@/lib/stripe/plans'
 import { subscriptionActivated } from '@/lib/email/templates'
 import type Stripe from 'stripe'
 
 export const dynamic = 'force-dynamic'
+
+type AdminClient = ReturnType<typeof createAdminClient>
 
 async function getResend() {
   const { Resend: ResendClient } = await import('resend')
@@ -53,29 +55,42 @@ async function sendPaymentReceiptEmail(to: string, amount: number, currency: str
   resend.emails.send({ from: FROM, to, subject: 'BarberBoost payment receipt', html }).catch(() => {})
 }
 
-// ── Webhook handler ───────────────────────────────────────────────────────
+// ── Shared subscription field sync (used by both created + updated) ───────
 
-export async function POST(request: Request) {
-  const body        = await request.text()
-  const headersList = await headers()
-  const signature   = headersList.get('stripe-signature')
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function syncSubscriptionFromStripe(supabase: AdminClient, sub: any) {
+  const priceId = sub.items.data[0].price.id
+  const plan    = getPlanByPriceId(priceId)
 
-  if (!signature) {
-    return NextResponse.json({ error: 'Missing stripe-signature header' }, { status: 400 })
-  }
+  // IMPORTANT: if the price ID is not in our plan map (e.g. env vars mismatch),
+  // do NOT fall back to 'free' — that would silently downgrade paying customers.
+  const planUpdate = plan ? { plan } : {}
 
-  let event: Stripe.Event
-  try {
-    event = getStripe().webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET!)
-  } catch (err) {
-    console.error('Webhook signature verification failed:', err)
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
-  }
+  // Once Stripe releases the schedule (a scheduled plan change has taken effect,
+  // or it was cancelled/released outside our app), clear our pending-change columns.
+  const scheduleUpdate = sub.schedule
+    ? {}
+    : { scheduled_plan: null, scheduled_price_id: null, stripe_schedule_id: null }
 
-  const supabase = await createServiceClient()
+  const { error } = await supabase.from('subscriptions').update({
+    ...planUpdate,
+    ...scheduleUpdate,
+    status:               sub.status,
+    stripe_price_id:      priceId,
+    current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
+    current_period_end:   new Date(sub.current_period_end   * 1000).toISOString(),
+    cancel_at_period_end: sub.cancel_at_period_end,
+  }).eq('stripe_subscription_id', sub.id)
 
-  console.log(`[webhook] event: ${event.type} id=${event.id}`)
+  if (error) console.error('[webhook] subscription sync error:', error)
+  else if (!plan) console.warn(`[webhook] priceId ${priceId} not in PLANS — status updated but plan left unchanged`)
 
+  return { plan }
+}
+
+// ── Event processing (runs in after(), off the response path) ─────────────
+
+async function processStripeEvent(event: Stripe.Event, supabase: AdminClient) {
   switch (event.type) {
     case 'checkout.session.completed': {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -171,37 +186,65 @@ export async function POST(request: Request) {
       break
     }
 
+    case 'customer.subscription.created': {
+      // Backstop: our signup route already writes the trial row synchronously
+      // right after Stripe returns it, but this re-syncs from the source of
+      // truth in case that write partially failed or drifted.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sub = event.data.object as any
+      console.log(`[webhook] subscription.created subId=${sub.id} status=${sub.status}`)
+      await syncSubscriptionFromStripe(supabase, sub)
+      break
+    }
+
+    case 'customer.subscription.trial_will_end': {
+      // Fires ~3 days before a trial ends (including trials Stripe extends).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sub = event.data.object as any
+      console.log(`[webhook] trial_will_end subId=${sub.id} trial_end=${sub.trial_end}`)
+      // TODO(Phase 5): queue the `trial_ending` lifecycle email — 3 days left,
+      // what happens next, reassurance that data is kept.
+      break
+    }
+
     case 'customer.subscription.updated': {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const sub     = event.data.object as any
-      const priceId = sub.items.data[0].price.id
-      const plan    = getPlanByPriceId(priceId)
+      const sub = event.data.object as any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const previousStatus = (event.data as any).previous_attributes?.status as string | undefined
 
-      console.log(`[webhook] ${event.type} subId=${sub.id} priceId=${priceId} resolved plan=${plan} status=${sub.status} schedule=${sub.schedule ?? 'none'}`)
+      console.log(`[webhook] ${event.type} subId=${sub.id} status=${previousStatus ?? '?'}→${sub.status} schedule=${sub.schedule ?? 'none'}`)
 
-      // IMPORTANT: if the price ID is not in our plan map (e.g. env vars mismatch),
-      // do NOT fall back to 'free' — that would silently downgrade paying customers.
-      // Only update the plan when we can positively identify it.
-      const planUpdate = plan ? { plan } : {}
+      await syncSubscriptionFromStripe(supabase, sub)
 
-      // Once Stripe releases the schedule (a scheduled plan change has taken effect,
-      // or it was cancelled/released outside our app), clear our pending-change columns.
-      const scheduleUpdate = sub.schedule
-        ? {}
-        : { scheduled_plan: null, scheduled_price_id: null, stripe_schedule_id: null }
+      const isConversion    = previousStatus === 'trialing' && sub.status === 'active'
+      const isPausing       = previousStatus === 'trialing' && sub.status === 'paused'
+      const isReactivating  = (previousStatus === 'paused' || previousStatus === 'canceled') && sub.status === 'active'
 
-      const { error: subUpdateErr } = await supabase.from('subscriptions').update({
-        ...planUpdate,
-        ...scheduleUpdate,
-        status:               sub.status,
-        stripe_price_id:      priceId,
-        current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
-        current_period_end:   new Date(sub.current_period_end   * 1000).toISOString(),
-        cancel_at_period_end: sub.cancel_at_period_end,
-      }).eq('stripe_subscription_id', sub.id)
+      if (isConversion || isPausing || isReactivating) {
+        const lifecycleUpdate = isConversion
+          ? { converted_at: new Date().toISOString() }
+          : isPausing
+            ? { paused_at: new Date().toISOString() }
+            : { paused_at: null }
 
-      if (subUpdateErr) console.error(`[webhook] ${event.type} update error:`, subUpdateErr)
-      else if (!plan) console.warn(`[webhook] ${event.type}: priceId ${priceId} not in PLANS — status updated but plan left unchanged`)
+        const { error } = await supabase.from('subscriptions').update(lifecycleUpdate).eq('stripe_subscription_id', sub.id)
+        if (error) console.error('[webhook] lifecycle timestamp update error:', error)
+      }
+
+      if (isConversion) {
+        console.log(`[webhook] trial converted → converted_at set for subId=${sub.id}`)
+        // TODO(Phase 5): fire the conversion email and cancel every remaining
+        // trial/win-back nurture send queued for this shop.
+      }
+      if (isPausing) {
+        console.log(`[webhook] trial paused (no payment method) → paused_at set for subId=${sub.id}`)
+        // TODO(Phase 5): fire the `trial_ended` email — account is read-only,
+        // data is safe, one click to reactivate.
+      }
+      if (isReactivating) {
+        console.log(`[webhook] shop reactivated from ${previousStatus} for subId=${sub.id}`)
+      }
       break
     }
 
@@ -258,7 +301,67 @@ export async function POST(request: Request) {
       }
       break
     }
+
+    case 'invoice.upcoming': {
+      // Fires ~7 days before renewal — no subscription field changes here,
+      // this is purely a heads-up hook.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const inv = event.data.object as any
+      console.log(`[webhook] invoice.upcoming subId=${inv.subscription} amountDue=${inv.amount_due}`)
+      // TODO(Phase 5): fire a renewal heads-up email — most useful for the
+      // annual-plan case where the upcoming charge is large.
+      break
+    }
   }
+}
+
+// ── Webhook handler ───────────────────────────────────────────────────────
+
+export async function POST(request: Request) {
+  const body        = await request.text()
+  const headersList = await headers()
+  const signature   = headersList.get('stripe-signature')
+
+  if (!signature) {
+    return NextResponse.json({ error: 'Missing stripe-signature header' }, { status: 400 })
+  }
+
+  let event: Stripe.Event
+  try {
+    event = getStripe().webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET!)
+  } catch (err) {
+    console.error('Webhook signature verification failed:', err)
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+  }
+
+  const supabase = createAdminClient()
+
+  // Idempotency: claim this event id before doing anything else. Stripe
+  // retries deliveries, so a duplicate must be a safe no-op, not a replay.
+  const { error: dedupeError } = await supabase.from('stripe_events').insert({ id: event.id, type: event.type })
+  if (dedupeError) {
+    if (dedupeError.code === '23505') {
+      console.log(`[webhook] duplicate event ${event.id} (${event.type}) — skipping`)
+      return NextResponse.json({ received: true, duplicate: true })
+    }
+    // Any other error (e.g. a transient DB hiccup) — log but still process;
+    // losing the dedupe guarantee once is better than silently dropping a
+    // real event.
+    console.error('[webhook] stripe_events insert error:', dedupeError)
+  }
+
+  console.log(`[webhook] event: ${event.type} id=${event.id}`)
+
+  // Acknowledge Stripe immediately; do the actual work after the response
+  // has been sent so a slow downstream call (email, DB) never risks Stripe
+  // timing out and retrying an event we already received.
+  after(async () => {
+    try {
+      await processStripeEvent(event, supabase)
+    } catch (err) {
+      console.error(`[webhook] unhandled error processing ${event.type} (${event.id}):`, err)
+    }
+  })
 
   return NextResponse.json({ received: true })
 }
