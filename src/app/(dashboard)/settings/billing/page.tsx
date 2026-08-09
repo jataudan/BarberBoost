@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Loader2, Check, Minus, Zap, ArrowRight, CreditCard, AlertCircle, XCircle } from 'lucide-react'
+import { Loader2, Check, Minus, Zap, ArrowRight, CreditCard, AlertCircle, XCircle, Sparkles } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { PLANS, PLAN_ORDER, type PlanId } from '@/lib/stripe/plans'
 import type { Subscription } from '@/types/database'
+import type { TrialRecommendation } from '@/lib/trial-recommendation'
 
 interface DowngradeViolation { resource: string; label: string; count: number; limit: number }
 
@@ -38,6 +39,9 @@ export default function BillingPage() {
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
   const [urlError, setUrlError]           = useState<string | null>(null)
   const [wasCanceled, setWasCanceled]     = useState(false)
+  const [converting, setConverting]       = useState<PlanId | null>(null)
+  const [convertError, setConvertError]   = useState<string | null>(null)
+  const [recommendation, setRecommendation] = useState<TrialRecommendation | null>(null)
 
   useEffect(() => {
     // Read redirect params from Stripe (client-side only)
@@ -53,11 +57,21 @@ export default function BillingPage() {
         const { data } = await supabase
           .from('subscriptions')
           .select('*')
+          // Status filter deliberately includes 'paused' here — trialing and
+          // paused shops both need to see the plan picker + card-capture flow.
           .eq('owner_id', user.id)
-          .in('status', ['active', 'trialing', 'past_due'])
+          .in('status', ['active', 'trialing', 'past_due', 'paused'])
           .order('updated_at', { ascending: false })
           .limit(1)
-        if (data?.[0]) setSub(data[0] as Subscription)
+        const row = data?.[0] as Subscription | undefined
+        if (row) setSub(row)
+
+        if (row && (row.status === 'trialing' || row.status === 'paused')) {
+          fetch('/api/trial/recommendation')
+            .then(res => res.json())
+            .then((json: { data?: TrialRecommendation }) => { if (json.data) setRecommendation(json.data) })
+            .catch(() => {})
+        }
       } finally {
         setLoading(false)
       }
@@ -104,6 +118,25 @@ export default function BillingPage() {
       setChangeError('Network error. Please try again.')
     } finally {
       setCancelingChange(false)
+    }
+  }
+
+  async function handleConvertTrial(planId: PlanId) {
+    setConverting(planId)
+    setConvertError(null)
+    try {
+      const res  = await fetch('/api/stripe/convert-trial', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ planId }),
+      })
+      const json = await res.json() as { url?: string; error?: string }
+      if (!res.ok || !json.url) { setConvertError(json.error ?? 'Could not start checkout. Please try again.'); return }
+      window.location.href = json.url
+    } catch {
+      setConvertError('Network error. Please try again.')
+    } finally {
+      setConverting(null)
     }
   }
 
@@ -172,7 +205,10 @@ export default function BillingPage() {
                   sub.status === 'trialing' ? 'bg-blue-400/10 text-blue-400' :
                   'bg-red-500/10 text-red-400'
                 }`}>{sub.status.charAt(0).toUpperCase() + sub.status.slice(1)}</span>
-                {sub.current_period_end && !sub.scheduled_plan && (
+                {sub.status === 'trialing' && sub.trial_end && (
+                  <span className="text-xs text-zinc-500">Trial ends {fmtDate(sub.trial_end)}</span>
+                )}
+                {sub.status !== 'trialing' && sub.current_period_end && !sub.scheduled_plan && (
                   <span className="text-xs text-zinc-500">
                     {sub.cancel_at_period_end ? 'Cancels' : 'Renews'} {fmtDate(sub.current_period_end)}
                   </span>
@@ -217,6 +253,26 @@ export default function BillingPage() {
           </div>
         )}
       </div>
+
+      {/* Trial usage-based recommendation */}
+      {(sub?.status === 'trialing' || sub?.status === 'paused') && recommendation && (
+        <div className="flex items-start gap-3 bg-[#c9a84c]/[0.06] border border-[#c9a84c]/20 rounded-2xl px-5 py-4">
+          <Sparkles className="w-5 h-5 text-[#c9a84c] shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-white">
+              Our recommendation: {PLANS[recommendation.plan].name}
+            </p>
+            <p className="text-xs text-zinc-400 mt-1">{recommendation.reason}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Inline convert-trial errors */}
+      {convertError && (
+        <div className="flex items-center gap-2.5 bg-red-500/[0.08] border border-red-500/20 rounded-xl px-4 py-3 text-sm text-red-400">
+          <AlertCircle className="w-4 h-4 shrink-0" />{convertError}
+        </div>
+      )}
 
       {/* Inline plan-change / checkout errors */}
       {changeError && (
@@ -264,6 +320,7 @@ export default function BillingPage() {
             const isUpgrade  = PLAN_ORDER.indexOf(planId) > PLAN_ORDER.indexOf(currentPlanId)
             const isDowngrade = PLAN_ORDER.indexOf(planId) < PLAN_ORDER.indexOf(currentPlanId)
             const isScheduledTarget = sub?.scheduled_plan === planId || (planId === 'free' && !!sub?.cancel_at_period_end && !sub?.scheduled_plan)
+            const isTrialOrPaused = sub?.status === 'trialing' || sub?.status === 'paused'
 
             return (
               <div key={planId}
@@ -306,53 +363,71 @@ export default function BillingPage() {
                   ))}
                 </ul>
 
-                {isScheduledTarget && !isCurrent && (
-                  <div className="flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-semibold bg-white/[0.04] text-zinc-400">
-                    <Check className="w-3.5 h-3.5" /> Scheduled
-                  </div>
-                )}
-                {isUpgrade && !isScheduledTarget && (
-                  sub?.stripe_customer_id ? (
-                    // Already a paid subscriber — schedule the change for next renewal
+                {isTrialOrPaused ? (
+                  // Trialing/paused shops don't have a real paid "current"
+                  // plan yet — every paid tier is a valid card-capture target.
+                  planId !== 'free' && (
                     <button type="button"
-                      onClick={() => handlePlanChange(planId as PlanId)}
-                      disabled={changing === planId}
+                      onClick={() => handleConvertTrial(planId as PlanId)}
+                      disabled={converting === planId}
                       className={`w-full flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-colors disabled:opacity-60 ${accent.cta}`}>
-                      {changing === planId
+                      {converting === planId
                         ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        : <Zap className="w-3.5 h-3.5" />}
-                      Upgrade to {plan.name}
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                  ) : (
-                    // Free plan — create new Stripe Checkout session
-                    <button type="button"
-                      onClick={() => handleCheckout(planId as PlanId)}
-                      disabled={checkingOut === planId}
-                      className={`w-full flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-colors disabled:opacity-60 ${accent.cta}`}>
-                      {checkingOut === planId
-                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        : <Zap className="w-3.5 h-3.5" />}
-                      Upgrade to {plan.name}
-                      <ArrowRight className="w-3.5 h-3.5" />
+                        : <CreditCard className="w-3.5 h-3.5" />}
+                      {sub?.status === 'paused' ? `Reactivate on ${plan.name}` : `Choose ${plan.name}`}
                     </button>
                   )
-                )}
-                {isDowngrade && !isScheduledTarget && sub?.stripe_customer_id && (
-                  <button type="button"
-                    onClick={() => handlePlanChange(planId as PlanId)}
-                    disabled={changing === planId}
-                    className="w-full flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-colors disabled:opacity-60 bg-white/[0.06] hover:bg-white/[0.1] text-zinc-200">
-                    {changing === planId
-                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      : null}
-                    {planId === 'free' ? 'Switch to Free' : `Downgrade to ${plan.name}`}
-                  </button>
-                )}
-                {isCurrent && (
-                  <div className="flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-semibold bg-white/[0.04] text-zinc-500">
-                    <Check className="w-3.5 h-3.5" /> Current plan
-                  </div>
+                ) : (
+                  <>
+                    {isScheduledTarget && !isCurrent && (
+                      <div className="flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-semibold bg-white/[0.04] text-zinc-400">
+                        <Check className="w-3.5 h-3.5" /> Scheduled
+                      </div>
+                    )}
+                    {isUpgrade && !isScheduledTarget && (
+                      sub?.stripe_customer_id ? (
+                        // Already a paid subscriber — schedule the change for next renewal
+                        <button type="button"
+                          onClick={() => handlePlanChange(planId as PlanId)}
+                          disabled={changing === planId}
+                          className={`w-full flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-colors disabled:opacity-60 ${accent.cta}`}>
+                          {changing === planId
+                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            : <Zap className="w-3.5 h-3.5" />}
+                          Upgrade to {plan.name}
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      ) : (
+                        // Free plan — create new Stripe Checkout session
+                        <button type="button"
+                          onClick={() => handleCheckout(planId as PlanId)}
+                          disabled={checkingOut === planId}
+                          className={`w-full flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-colors disabled:opacity-60 ${accent.cta}`}>
+                          {checkingOut === planId
+                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            : <Zap className="w-3.5 h-3.5" />}
+                          Upgrade to {plan.name}
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      )
+                    )}
+                    {isDowngrade && !isScheduledTarget && sub?.stripe_customer_id && (
+                      <button type="button"
+                        onClick={() => handlePlanChange(planId as PlanId)}
+                        disabled={changing === planId}
+                        className="w-full flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-bold transition-colors disabled:opacity-60 bg-white/[0.06] hover:bg-white/[0.1] text-zinc-200">
+                        {changing === planId
+                          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          : null}
+                        {planId === 'free' ? 'Switch to Free' : `Downgrade to ${plan.name}`}
+                      </button>
+                    )}
+                    {isCurrent && (
+                      <div className="flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-semibold bg-white/[0.04] text-zinc-500">
+                        <Check className="w-3.5 h-3.5" /> Current plan
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )

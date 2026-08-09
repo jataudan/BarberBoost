@@ -2,7 +2,7 @@ import { NextResponse, after } from 'next/server'
 import { headers } from 'next/headers'
 import { getStripe } from '@/lib/stripe/config'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getPlanByPriceId, PLANS } from '@/lib/stripe/plans'
+import { getPlanByPriceId, PLANS, type PlanId } from '@/lib/stripe/plans'
 import { subscriptionActivated } from '@/lib/email/templates'
 import type Stripe from 'stripe'
 
@@ -88,6 +88,80 @@ async function syncSubscriptionFromStripe(supabase: AdminClient, sub: any) {
   return { plan }
 }
 
+// ── Trial conversion / reactivation (mode:'setup' Checkout sessions) ──────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function handleTrialConversionSetup(session: any, supabase: AdminClient) {
+  const { userId, shopId, planId, flow } = (session.metadata ?? {}) as Record<string, string | undefined>
+
+  console.log(`[webhook] checkout.session.completed (setup) userId=${userId} shopId=${shopId} planId=${planId} flow=${flow}`)
+
+  if (!userId || !shopId || !planId) {
+    console.error('[webhook] convert-trial setup session missing metadata:', session.metadata)
+    return
+  }
+
+  const stripe = getStripe()
+  const setupIntent = await stripe.setupIntents.retrieve(session.setup_intent as string)
+  const paymentMethodId = setupIntent.payment_method as string | null
+
+  if (!paymentMethodId) {
+    console.error(`[webhook] convert-trial: setup session ${session.id} completed with no payment method attached`)
+    return
+  }
+
+  const { data: sub } = await supabase.from('subscriptions').select('*').eq('shop_id', shopId).maybeSingle()
+  if (!sub?.stripe_subscription_id || !sub?.stripe_customer_id) {
+    console.error(`[webhook] convert-trial: no subscription found for shop=${shopId}`)
+    return
+  }
+
+  const targetPlan = PLANS[planId as Exclude<PlanId, 'free'>]
+  const newPriceId = targetPlan?.priceId
+  if (!newPriceId) {
+    console.error(`[webhook] convert-trial: no priceId configured for plan ${planId}`)
+    return
+  }
+
+  // Make the captured card the subscription's payment method going forward.
+  await stripe.customers.update(sub.stripe_customer_id, {
+    invoice_settings: { default_payment_method: paymentMethodId },
+  })
+
+  if (flow === 'reactivate') {
+    // resume() only un-pauses — it can't change price/payment method itself,
+    // so a separate update() call below finishes the job.
+    await stripe.subscriptions.resume(sub.stripe_subscription_id, {
+      billing_cycle_anchor: 'now',
+      proration_behavior:   'none',
+    })
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const stripeSub = await stripe.subscriptions.retrieve(sub.stripe_subscription_id) as any
+  const currentItemId = stripeSub.items.data[0].id
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updateParams: any = {
+    items:                  [{ id: currentItemId, price: newPriceId }],
+    default_payment_method: paymentMethodId,
+    proration_behavior:     'none',
+  }
+  // Converting mid-trial must never end the trial early — explicitly carry
+  // the existing trial_end forward rather than relying on it being untouched
+  // by default. Reactivation has no trial to preserve (it already ended).
+  if (flow === 'convert' && stripeSub.trial_end) {
+    updateParams.trial_end = stripeSub.trial_end
+  }
+
+  await stripe.subscriptions.update(sub.stripe_subscription_id, updateParams)
+
+  console.log(`[webhook] convert-trial ${flow} completed for shop=${shopId} → plan=${planId}`)
+  // No direct DB write here — the customer.subscription.updated event this
+  // triggers is what syncs plan/price/status (and converted_at/paused_at via
+  // the existing transition detection) into our DB.
+}
+
 // ── Event processing (runs in after(), off the response path) ─────────────
 
 async function processStripeEvent(event: Stripe.Event, supabase: AdminClient) {
@@ -95,6 +169,15 @@ async function processStripeEvent(event: Stripe.Event, supabase: AdminClient) {
     case 'checkout.session.completed': {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const session = event.data.object as any
+
+      // mode:'setup' sessions are the trial-conversion / reactivation card
+      // capture flow — a distinct code path from the mode:'subscription'
+      // paid-signup flow handled below.
+      if (session.mode === 'setup') {
+        await handleTrialConversionSetup(session, supabase)
+        break
+      }
+
       const userId  = session.metadata?.userId as string | undefined
       const shopIdMeta = session.metadata?.shopId as string | undefined
 
