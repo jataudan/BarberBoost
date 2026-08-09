@@ -1090,30 +1090,84 @@ interface NurtureBase {
 
 // ── welcome (day 0) ─────────────────────────────────────────────────────
 
-export function trialWelcome(data: NurtureBase & { servicesUrl: string }) {
+export interface SetupGuideStep {
+  label: string
+  href:  string
+  done:  boolean
+}
+
+/**
+ * The day-0 send is the trial's setup guide — a numbered walkthrough of the
+ * same three steps isSetupComplete() checks (services, staff, hours), with
+ * live ✅/⬜ status per step so it stays accurate no matter when it's opened
+ * relative to signup. Deliberately doesn't duplicate the dedicated
+ * booking_link (day 4) email's "go share this" push — it just previews the
+ * booking page URL as a preview/motivator.
+ */
+function stepRow(step: SetupGuideStep, index: number): string {
+  const icon = step.done ? '✅' : `${index}`
+  const iconStyle = step.done
+    ? `color:#22c55e;font-size:16px;`
+    : `display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:${GOLD};color:#000;font-size:11px;font-weight:900;`
+  const textStyle = step.done ? `color:${MUTED};text-decoration:line-through;` : `color:${TEXT};`
+  return `
+    <tr>
+      <td style="padding:10px 0;border-bottom:1px solid ${BORDER};vertical-align:middle;width:32px;">
+        <span style="${iconStyle}">${icon}</span>
+      </td>
+      <td style="padding:10px 0 10px 10px;border-bottom:1px solid ${BORDER};vertical-align:middle;">
+        <span style="font-size:14px;font-weight:600;${textStyle}">${esc(step.label)}</span>
+        ${!step.done ? `<a href="${step.href}" style="display:block;font-size:12px;color:${GOLD};text-decoration:none;margin-top:2px;">${step.href}</a>` : ''}
+      </td>
+    </tr>`
+}
+
+export function trialWelcome(data: NurtureBase & { steps: SetupGuideStep[]; bookingPageUrl: string }) {
+  const remaining = data.steps.filter(s => !s.done).length
+  const rows = data.steps.map((s, i) => stepRow(s, i + 1)).join('')
+
   const content = `
     <div style="text-align:center;margin-bottom:24px;">
       <div style="display:inline-block;width:52px;height:52px;background:rgba(201,168,76,0.12);border-radius:50%;border:1px solid rgba(201,168,76,0.25);line-height:52px;font-size:26px;margin-bottom:12px;">✂️</div>
       <h1 style="margin:0;font-size:22px;font-weight:900;color:${TEXT};letter-spacing:0.04em;">YOUR 30-DAY TRIAL IS LIVE</h1>
       <p style="margin:10px 0 0;font-size:14px;color:${MUTED};">Hi ${esc(data.ownerName)} — full access, no card needed.</p>
     </div>
-    <p style="font-size:14px;color:${TEXT};line-height:1.7;">
-      The fastest way to see ${esc(data.shopName)} come to life on BarberBoost is to add your chairs and
-      the services you offer — that's it, your public booking page goes live the moment you do.
+
+    <p style="font-size:14px;color:${TEXT};line-height:1.7;margin-bottom:16px;">
+      ${remaining > 0
+        ? `Here's your setup guide for ${esc(data.shopName)} — ${remaining} step${remaining === 1 ? '' : 's'} left before you can take your first booking:`
+        : `${esc(data.shopName)} is fully set up already — nice work. Here's a quick recap:`}
     </p>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">${rows}</table>
+
+    <div style="background:${BG};border:1px solid ${BORDER};border-radius:10px;padding:16px;margin-bottom:20px;">
+      <p style="margin:0 0 6px;font-size:11px;color:${MUTED};text-transform:uppercase;letter-spacing:0.08em;">Your public booking page</p>
+      <a href="${data.bookingPageUrl}" style="font-size:13px;color:${GOLD};text-decoration:none;word-break:break-all;">${data.bookingPageUrl}</a>
+      <p style="margin:8px 0 0;font-size:12px;color:${MUTED};line-height:1.5;">This is what clients will see once the steps above are done — save it to share on Instagram, WhatsApp, or wherever you reach clients.</p>
+    </div>
+
     <div style="text-align:center;">
-      ${ctaButton('ADD MY SERVICES & STAFF', data.servicesUrl)}
+      ${ctaButton(remaining > 0 ? 'CONTINUE SETUP' : 'GO TO MY DASHBOARD', data.dashboardUrl)}
     </div>
   `
+
   const text = [
     `YOUR 30-DAY TRIAL IS LIVE`, '',
     `Hi ${data.ownerName} — full access, no card needed.`, '',
-    `Add your chairs and services to bring ${data.shopName} to life on BarberBoost:`,
-    data.servicesUrl,
+    remaining > 0
+      ? `Here's your setup guide for ${data.shopName} — ${remaining} step${remaining === 1 ? '' : 's'} left:`
+      : `${data.shopName} is fully set up already — nice work. Here's a quick recap:`,
+    '',
+    ...data.steps.map((s, i) => `${s.done ? '[done]' : `${i + 1}.`} ${s.label}${s.done ? '' : ` — ${s.href}`}`),
+    '',
+    `Your public booking page: ${data.bookingPageUrl}`,
+    '',
+    data.dashboardUrl,
   ].join('\n')
 
   return {
-    subject: `Let's get ${data.shopName} ready to take bookings`,
+    subject: remaining > 0 ? `Your setup guide for ${data.shopName}` : `Let's get ${data.shopName} ready to take bookings`,
     html:    nurtureEmailShell(content, data.shopName, data.unsubscribeUrl),
     text,
   }

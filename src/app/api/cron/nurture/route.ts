@@ -66,7 +66,19 @@ function trialAttempts(ctx: ShopContext): Attempt[] {
   return [
     {
       key: 'welcome', minDay: 0,
-      build: () => templates.trialWelcome({ ...base, servicesUrl: `${APP_URL}/services` }),
+      build: async () => {
+        const [status, shopRow] = await Promise.all([
+          getOnboardingStatus(ctx.shopId),
+          createAdminClient().from('shops').select('slug').eq('id', ctx.shopId).single(),
+        ])
+        const steps: templates.SetupGuideStep[] = [
+          { label: 'Add your services',      href: `${APP_URL}/services`,      done: status.hasServices },
+          { label: 'Add a barber',           href: `${APP_URL}/staff`,         done: status.hasStaff },
+          { label: 'Set your opening hours', href: `${APP_URL}/settings/shop`, done: status.hasOpeningHours },
+        ]
+        const bookingPageUrl = `${APP_URL}/booking/${shopRow.data?.slug ?? ''}`
+        return templates.trialWelcome({ ...base, steps, bookingPageUrl })
+      },
     },
     {
       key: 'setup_nudge', minDay: 2,
