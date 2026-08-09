@@ -5,6 +5,7 @@ import { Features } from '@/components/marketing/Features'
 import { PricingTable } from '@/components/marketing/PricingTable'
 import { Testimonials } from '@/components/marketing/Testimonials'
 import { FAQ } from '@/components/marketing/FAQ'
+import { TrialSignupModal } from '@/components/marketing/TrialSignupModal'
 
 export const metadata: Metadata = {
   title: 'BarberBoost — Run Your Barbershop Like a Boss',
@@ -21,6 +22,7 @@ export default function LandingPage() {
       <Testimonials />
       <PricingTable />
       <FAQ />
+      <TrialSignupModal />
     </main>
   )
 }
