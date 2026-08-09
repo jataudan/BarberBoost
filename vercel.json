@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/past-due-sweep",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/nurture",
+      "schedule": "0 * * * *"
     }
   ],
   "functions": {
@@ -31,6 +35,9 @@
       "maxDuration": 60
     },
     "src/app/api/cron/past-due-sweep/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/cron/nurture/route.ts": {
       "maxDuration": 60
     }
   },

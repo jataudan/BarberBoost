@@ -4,6 +4,8 @@
  * These are HTML strings, not JSX — inline styles are intentional.
  */
 
+import { PLANS } from '@/lib/stripe/plans'
+
 // ── Shared primitives ─────────────────────────────────────────────────────
 
 function esc(s: string | null | undefined): string {
@@ -43,6 +45,44 @@ function emailShell(content: string, shopName: string): string {
         <tr><td style="padding-top:24px;text-align:center;font-size:11px;color:${MUTED};line-height:1.6;">
           This email was sent by ${safeName} via BarberBoost.<br>
           If you did not make this booking, please ignore this email.
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
+}
+
+/**
+ * Shell for trial-lifecycle nurture emails. Unlike emailShell() (booking
+ * transactional mail — no unsubscribe, since those are required service
+ * messages), every nurture send needs a working unsubscribe link per PECR.
+ */
+function nurtureEmailShell(content: string, shopName: string, unsubscribeUrl: string): string {
+  const safeName = esc(shopName.slice(0, 100))
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${safeName}</title></head>
+<body style="margin:0;padding:0;background:${BG};font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:${TEXT};">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:${BG};padding:40px 16px;">
+    <tr><td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
+
+        <!-- Logo bar -->
+        <tr><td style="padding-bottom:28px;text-align:center;">
+          <span style="font-size:22px;font-weight:900;letter-spacing:0.12em;color:${GOLD};">BARBERBOOST</span>
+        </td></tr>
+
+        <!-- Card -->
+        <tr><td style="background:${SURFACE};border:1px solid ${BORDER};border-radius:12px;padding:32px;">
+          ${content}
+        </td></tr>
+
+        <!-- Footer -->
+        <tr><td style="padding-top:24px;text-align:center;font-size:11px;color:${MUTED};line-height:1.7;">
+          You're receiving this because ${safeName} is trialling BarberBoost.<br>
+          <a href="${unsubscribeUrl}" style="color:${MUTED};text-decoration:underline;">Unsubscribe from these emails</a>
         </td></tr>
 
       </table>
@@ -1032,6 +1072,422 @@ export function bookingRescheduledByCustomer(data: BookingRescheduledByCustomerD
   return {
     subject: `Rescheduled: ${data.clientName} → ${data.newDate} at ${data.newStartTime}`,
     html:    emailShell(content, data.shopName),
+    text,
+  }
+}
+
+// ============================================================
+// Trial nurture series (Phase 5) — all use nurtureEmailShell(),
+// which includes the required unsubscribe link. Copy is UK English.
+// ============================================================
+
+interface NurtureBase {
+  shopName:       string
+  ownerName:      string
+  dashboardUrl:   string
+  unsubscribeUrl: string
+}
+
+// ── welcome (day 0) ─────────────────────────────────────────────────────
+
+export function trialWelcome(data: NurtureBase & { servicesUrl: string }) {
+  const content = `
+    <div style="text-align:center;margin-bottom:24px;">
+      <div style="display:inline-block;width:52px;height:52px;background:rgba(201,168,76,0.12);border-radius:50%;border:1px solid rgba(201,168,76,0.25);line-height:52px;font-size:26px;margin-bottom:12px;">✂️</div>
+      <h1 style="margin:0;font-size:22px;font-weight:900;color:${TEXT};letter-spacing:0.04em;">YOUR 30-DAY TRIAL IS LIVE</h1>
+      <p style="margin:10px 0 0;font-size:14px;color:${MUTED};">Hi ${esc(data.ownerName)} — full access, no card needed.</p>
+    </div>
+    <p style="font-size:14px;color:${TEXT};line-height:1.7;">
+      The fastest way to see ${esc(data.shopName)} come to life on BarberBoost is to add your chairs and
+      the services you offer — that's it, your public booking page goes live the moment you do.
+    </p>
+    <div style="text-align:center;">
+      ${ctaButton('ADD MY SERVICES & STAFF', data.servicesUrl)}
+    </div>
+  `
+  const text = [
+    `YOUR 30-DAY TRIAL IS LIVE`, '',
+    `Hi ${data.ownerName} — full access, no card needed.`, '',
+    `Add your chairs and services to bring ${data.shopName} to life on BarberBoost:`,
+    data.servicesUrl,
+  ].join('\n')
+
+  return {
+    subject: `Let's get ${data.shopName} ready to take bookings`,
+    html:    nurtureEmailShell(content, data.shopName, data.unsubscribeUrl),
+    text,
+  }
+}
+
+// ── setup_nudge (day 2, skipped if setup already complete) ─────────────
+
+export function setupNudge(data: NurtureBase & { missing: string[] }) {
+  const items = data.missing.map(m => `<li style="padding:4px 0;color:${TEXT};font-size:13px;">${esc(m)}</li>`).join('')
+  const content = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:900;color:${TEXT};">YOU'RE ALMOST READY</h1>
+    <p style="font-size:14px;color:${TEXT};line-height:1.7;">
+      Quick one — ${esc(data.shopName)} is a couple of steps from being able to take bookings:
+    </p>
+    <ul style="margin:0 0 20px;padding-left:20px;">${items}</ul>
+    <div style="text-align:center;">
+      ${ctaButton('FINISH SETUP', data.dashboardUrl)}
+    </div>
+  `
+  const text = [
+    `YOU'RE ALMOST READY`, '',
+    `${data.shopName} is a couple of steps from being able to take bookings:`,
+    ...data.missing.map(m => `- ${m}`), '',
+    data.dashboardUrl,
+  ].join('\n')
+
+  return {
+    subject: `Quick one — finish setting up ${data.shopName}`,
+    html:    nurtureEmailShell(content, data.shopName, data.unsubscribeUrl),
+    text,
+  }
+}
+
+// ── booking_link (day 4, branches on whether any booking exists) ───────
+
+export function bookingLinkNudge(data: NurtureBase & { bookingPageUrl: string; hasBookings: boolean }) {
+  const heading = data.hasBookings ? 'YOU’VE GOT BOOKINGS COMING IN' : 'YOUR BOOKING PAGE IS READY'
+  const body = data.hasBookings
+    ? `Nice work — clients are already booking ${esc(data.shopName)} online. The more places you share your link, the more it works for you: Instagram bio, WhatsApp status, a QR code by the till.`
+    : `${esc(data.shopName)}'s public booking page is live and ready for clients — you just need to put it in front of them. Add it to your Instagram bio, WhatsApp status, or text it directly.`
+  const content = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:900;color:${TEXT};">${heading}</h1>
+    <p style="font-size:14px;color:${TEXT};line-height:1.7;">${body}</p>
+    <p style="margin:16px 0;padding:12px 16px;background:${BG};border:1px solid ${BORDER};border-radius:8px;font-size:13px;color:${GOLD};word-break:break-all;">${esc(data.bookingPageUrl)}</p>
+    <div style="text-align:center;">
+      ${ctaButton('MANAGE MY BOOKING PAGE', data.dashboardUrl)}
+    </div>
+  `
+  const text = [heading, '', body, '', data.bookingPageUrl].join('\n')
+
+  return {
+    subject: data.hasBookings ? `Nice — you've got bookings coming in` : `Your booking page is ready — share it`,
+    html:    nurtureEmailShell(content, data.shopName, data.unsubscribeUrl),
+    text,
+  }
+}
+
+// ── reminders_feature (day 7) ────────────────────────────────────────────
+
+export function remindersFeatureNudge(data: NurtureBase & { noShowCount: number }) {
+  const noShowLine = data.noShowCount > 0
+    ? `You've already had <strong style="color:${TEXT};">${data.noShowCount}</strong> no-show${data.noShowCount === 1 ? '' : 's'} since your trial started — automated reminders are built to stop that.`
+    : `No-shows cost UK barbershops real money every week — automated reminders are the single easiest fix.`
+  const content = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:900;color:${TEXT};">CUT NO-SHOWS AUTOMATICALLY</h1>
+    <p style="font-size:14px;color:${TEXT};line-height:1.7;">${noShowLine}</p>
+    <p style="font-size:14px;color:${TEXT};line-height:1.7;">
+      Your trial includes automated SMS and email reminders sent ahead of every booking — no setup beyond
+      what you've already done.
+    </p>
+    <div style="text-align:center;">
+      ${ctaButton('VIEW MY BOOKINGS', data.dashboardUrl)}
+    </div>
+  `
+  const text = [`CUT NO-SHOWS AUTOMATICALLY`, '', noShowLine.replace(/<[^>]+>/g, ''), '', data.dashboardUrl].join('\n')
+
+  return {
+    subject: `Cut no-shows with automatic reminders`,
+    html:    nurtureEmailShell(content, data.shopName, data.unsubscribeUrl),
+    text,
+  }
+}
+
+// ── midtrial_active (day 12, active shops) ──────────────────────────────
+
+export function midtrialActive(data: NurtureBase & { bookingsCount: number }) {
+  const content = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:900;color:${TEXT};">YOU'RE OFF TO A STRONG START</h1>
+    <p style="font-size:14px;color:${TEXT};line-height:1.7;">
+      ${esc(data.shopName)} has taken <strong style="color:${GOLD};">${data.bookingsCount}</strong> booking${data.bookingsCount === 1 ? '' : 's'} through
+      BarberBoost so far. A few things worth trying next:
+    </p>
+    <ul style="margin:0 0 20px;padding-left:20px;">
+      <li style="padding:4px 0;color:${TEXT};font-size:13px;">Take deposits on booking to cut cancellations</li>
+      <li style="padding:4px 0;color:${TEXT};font-size:13px;">Prompt clients to rebook before they leave the chair</li>
+      <li style="padding:4px 0;color:${TEXT};font-size:13px;">Track stock and commissions as your team grows</li>
+    </ul>
+    <div style="text-align:center;">
+      ${ctaButton('EXPLORE MY DASHBOARD', data.dashboardUrl)}
+    </div>
+  `
+  const text = [
+    `YOU'RE OFF TO A STRONG START`, '',
+    `${data.shopName} has taken ${data.bookingsCount} bookings through BarberBoost so far.`, '',
+    `- Take deposits on booking to cut cancellations`,
+    `- Prompt clients to rebook before they leave the chair`,
+    `- Track stock and commissions as your team grows`, '',
+    data.dashboardUrl,
+  ].join('\n')
+
+  return {
+    subject: `You're off to a strong start`,
+    html:    nurtureEmailShell(content, data.shopName, data.unsubscribeUrl),
+    text,
+  }
+}
+
+// ── midtrial_stalled (day 12, stalled shops) ─────────────────────────────
+
+export function midtrialStalled(data: NurtureBase) {
+  const content = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:900;color:${TEXT};">NEED A HAND GETTING STARTED?</h1>
+    <p style="font-size:14px;color:${TEXT};line-height:1.7;">
+      We noticed ${esc(data.shopName)} hasn't taken a booking yet. That's completely normal — but we'd
+      rather help now than let your trial run out unused.
+    </p>
+    <p style="font-size:14px;color:${TEXT};line-height:1.7;">
+      Reply to this email and tell us what's blocking you, or grab 15 minutes with us and we'll get you
+      set up together.
+    </p>
+    <div style="text-align:center;">
+      ${ctaButton('BACK TO MY DASHBOARD', data.dashboardUrl)}
+    </div>
+  `
+  const text = [
+    `NEED A HAND GETTING STARTED?`, '',
+    `We noticed ${data.shopName} hasn't taken a booking yet.`,
+    `Reply to this email and tell us what's blocking you, or grab 15 minutes with us.`, '',
+    data.dashboardUrl,
+  ].join('\n')
+
+  return {
+    subject: `Need a hand getting started?`,
+    html:    nurtureEmailShell(content, data.shopName, data.unsubscribeUrl),
+    text,
+  }
+}
+
+// ── value_recap (day 16) — strongest email in the series ────────────────
+
+export function valueRecap(data: NurtureBase & { bookingsCount: number; hoursSaved: number; revenueBooked: number; currency: string }) {
+  const money = new Intl.NumberFormat('en-GB', { style: 'currency', currency: data.currency || 'GBP', minimumFractionDigits: 0 }).format(data.revenueBooked)
+  const content = `
+    <h1 style="margin:0 0 4px;font-size:20px;font-weight:900;color:${TEXT};">WHAT BARBERBOOST HAS DONE FOR ${esc(data.shopName.toUpperCase())}</h1>
+    <p style="margin:0 0 20px;font-size:13px;color:${MUTED};">Your real numbers since your trial started:</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">
+      <tr>
+        <td style="padding:14px 0;border-bottom:1px solid ${BORDER};text-align:center;width:33%;">
+          <div style="font-size:24px;font-weight:900;color:${GOLD};">${data.bookingsCount}</div>
+          <div style="font-size:11px;color:${MUTED};text-transform:uppercase;letter-spacing:0.04em;">Bookings taken</div>
+        </td>
+        <td style="padding:14px 0;border-bottom:1px solid ${BORDER};text-align:center;width:33%;">
+          <div style="font-size:24px;font-weight:900;color:${GOLD};">${data.hoursSaved}</div>
+          <div style="font-size:11px;color:${MUTED};text-transform:uppercase;letter-spacing:0.04em;">Hours saved</div>
+        </td>
+        <td style="padding:14px 0;border-bottom:1px solid ${BORDER};text-align:center;width:33%;">
+          <div style="font-size:24px;font-weight:900;color:${GOLD};">${money}</div>
+          <div style="font-size:11px;color:${MUTED};text-transform:uppercase;letter-spacing:0.04em;">Revenue booked</div>
+        </td>
+      </tr>
+    </table>
+    <p style="font-size:14px;color:${TEXT};line-height:1.7;">
+      That's real time back in your week and real money through the till — with ${esc(data.ownerName)} not
+      lifting a phone to book any of it in.
+    </p>
+    <div style="text-align:center;">
+      ${ctaButton('SEE MY FULL DASHBOARD', data.dashboardUrl)}
+    </div>
+  `
+  const text = [
+    `WHAT BARBERBOOST HAS DONE FOR ${data.shopName}`, '',
+    `Bookings taken:  ${data.bookingsCount}`,
+    `Hours saved:     ${data.hoursSaved}`,
+    `Revenue booked:  ${money}`, '',
+    data.dashboardUrl,
+  ].join('\n')
+
+  return {
+    subject: `Here's what BarberBoost has done for ${data.shopName} so far`,
+    html:    nurtureEmailShell(content, data.shopName, data.unsubscribeUrl),
+    text,
+  }
+}
+
+// ── plan_guide (day 21) — comparison, no hard sell ───────────────────────
+
+export function planGuide(data: NurtureBase & { trialDaysRemaining: number }) {
+  const rows = (['starter', 'pro', 'empire'] as const).map(id => {
+    const p = PLANS[id]
+    return `<tr>
+      <td style="padding:10px 0;border-bottom:1px solid ${BORDER};font-size:13px;color:${TEXT};font-weight:700;">${p.name}</td>
+      <td style="padding:10px 0;border-bottom:1px solid ${BORDER};font-size:13px;color:${MUTED};">£${p.price}/mo</td>
+      <td style="padding:10px 0;border-bottom:1px solid ${BORDER};font-size:12px;color:${MUTED};">${esc(p.description)}</td>
+    </tr>`
+  }).join('')
+  const content = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:900;color:${TEXT};">WHICH PLAN FITS ${esc(data.shopName.toUpperCase())}?</h1>
+    <p style="font-size:14px;color:${TEXT};line-height:1.7;margin-bottom:16px;">
+      No rush — you've still got ${data.trialDaysRemaining} day${data.trialDaysRemaining === 1 ? '' : 's'} left on your trial.
+      Here's a quick comparison to think about when you're ready:
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;">${rows}</table>
+    <div style="text-align:center;">
+      ${ctaButton('COMPARE PLANS', data.dashboardUrl)}
+    </div>
+  `
+  const text = [
+    `WHICH PLAN FITS ${data.shopName}?`, '',
+    ...(['starter', 'pro', 'empire'] as const).map(id => `${PLANS[id].name} — £${PLANS[id].price}/mo — ${PLANS[id].description}`),
+    '', data.dashboardUrl,
+  ].join('\n')
+
+  return {
+    subject: `Which BarberBoost plan is right for ${data.shopName}?`,
+    html:    nurtureEmailShell(content, data.shopName, data.unsubscribeUrl),
+    text,
+  }
+}
+
+// ── recommendation (day 25) — first strong add-card CTA ──────────────────
+
+export function recommendationEmail(data: NurtureBase & { recommendedPlan: string; reason: string; billingUrl: string }) {
+  const content = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:900;color:${TEXT};">OUR PICK FOR ${esc(data.shopName.toUpperCase())}: ${esc(data.recommendedPlan.toUpperCase())}</h1>
+    <p style="font-size:14px;color:${TEXT};line-height:1.7;">${esc(data.reason)}</p>
+    <p style="font-size:14px;color:${TEXT};line-height:1.7;">
+      Add a card whenever you're ready — it won't cut your trial short. You'll keep every remaining free
+      day before anything is charged.
+    </p>
+    <div style="text-align:center;">
+      ${ctaButton('ADD PAYMENT METHOD', data.billingUrl)}
+    </div>
+  `
+  const text = [
+    `OUR PICK FOR ${data.shopName}: ${data.recommendedPlan}`, '',
+    data.reason, '',
+    `Add a card whenever you're ready — it won't cut your trial short.`, '',
+    data.billingUrl,
+  ].join('\n')
+
+  return {
+    subject: `Our pick for ${data.shopName}: ${data.recommendedPlan}`,
+    html:    nurtureEmailShell(content, data.shopName, data.unsubscribeUrl),
+    text,
+  }
+}
+
+// ── trial_ending (day 27, fired by trial_will_end webhook) ───────────────
+
+export function trialEndingSoon(data: NurtureBase & { trialEndDate: string; billingUrl: string }) {
+  const content = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:900;color:${TEXT};">3 DAYS LEFT IN YOUR TRIAL</h1>
+    <p style="font-size:14px;color:${TEXT};line-height:1.7;">
+      Your BarberBoost trial ends on <strong style="color:${TEXT};">${esc(data.trialEndDate)}</strong>. If no
+      card is on file by then, ${esc(data.shopName)} switches to read-only — nothing is deleted, but new
+      bookings and client messages pause until you add a payment method.
+    </p>
+    <p style="font-size:14px;color:${TEXT};line-height:1.7;">
+      Add a card now and your trial keeps running exactly as it is — you won't be charged a day early.
+    </p>
+    <div style="text-align:center;">
+      ${ctaButton('ADD PAYMENT METHOD', data.billingUrl)}
+    </div>
+  `
+  const text = [
+    `3 DAYS LEFT IN YOUR TRIAL`, '',
+    `Your trial ends on ${data.trialEndDate}. If no card is on file, ${data.shopName} switches to read-only — nothing is deleted.`, '',
+    data.billingUrl,
+  ].join('\n')
+
+  return {
+    subject: `3 days left in your BarberBoost trial`,
+    html:    nurtureEmailShell(content, data.shopName, data.unsubscribeUrl),
+    text,
+  }
+}
+
+// ── trial_ended (day 30, fired by the paused transition) ─────────────────
+
+export function trialEndedPaused(data: NurtureBase & { billingUrl: string }) {
+  const content = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:900;color:${TEXT};">YOUR TRIAL HAS ENDED</h1>
+    <p style="font-size:14px;color:${TEXT};line-height:1.7;">
+      ${esc(data.shopName)}'s account is now read-only — no new bookings or client messages until you
+      reactivate. Nothing has been touched: your clients, booking history and settings are exactly as you
+      left them.
+    </p>
+    <p style="font-size:14px;color:${TEXT};line-height:1.7;">
+      Reactivating takes one click — add a card and you're straight back in.
+    </p>
+    <div style="text-align:center;">
+      ${ctaButton('REACTIVATE MY ACCOUNT', data.billingUrl)}
+    </div>
+  `
+  const text = [
+    `YOUR TRIAL HAS ENDED`, '',
+    `${data.shopName}'s account is now read-only. Nothing has been deleted — your data is exactly as you left it.`,
+    `Reactivate: ${data.billingUrl}`,
+  ].join('\n')
+
+  return {
+    subject: `Your trial has ended — your data is safe`,
+    html:    nurtureEmailShell(content, data.shopName, data.unsubscribeUrl),
+    text,
+  }
+}
+
+// ── winback_1 (day 34) ────────────────────────────────────────────────────
+
+export function winback1(data: NurtureBase & { bookingsCount: number; revenueBooked: number; currency: string; billingUrl: string }) {
+  const money = new Intl.NumberFormat('en-GB', { style: 'currency', currency: data.currency || 'GBP', minimumFractionDigits: 0 }).format(data.revenueBooked)
+  const content = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:900;color:${TEXT};">WHAT YOU'RE MISSING AT ${esc(data.shopName.toUpperCase())}</h1>
+    <p style="font-size:14px;color:${TEXT};line-height:1.7;">
+      Before it paused, your trial booked <strong style="color:${GOLD};">${data.bookingsCount}</strong>
+      appointment${data.bookingsCount === 1 ? '' : 's'} worth <strong style="color:${GOLD};">${money}</strong> —
+      all without a phone call. That's still sitting there waiting for you.
+    </p>
+    <div style="text-align:center;">
+      ${ctaButton('REACTIVATE MY ACCOUNT', data.billingUrl)}
+    </div>
+  `
+  const text = [
+    `WHAT YOU'RE MISSING AT ${data.shopName}`, '',
+    `Before it paused, your trial booked ${data.bookingsCount} appointments worth ${money}.`, '',
+    data.billingUrl,
+  ].join('\n')
+
+  return {
+    subject: `What you're missing at ${data.shopName}`,
+    html:    nurtureEmailShell(content, data.shopName, data.unsubscribeUrl),
+    text,
+  }
+}
+
+// ── winback_2 (day 45, final) ─────────────────────────────────────────────
+
+export function winback2(data: NurtureBase & { billingUrl: string; supportEmail: string }) {
+  const content = `
+    <h1 style="margin:0 0 12px;font-size:20px;font-weight:900;color:${TEXT};">BEFORE YOU GO...</h1>
+    <p style="font-size:14px;color:${TEXT};line-height:1.7;">
+      This is the last email we'll send about your trial. If BarberBoost wasn't right for
+      ${esc(data.shopName)}, we'd genuinely like to know why — just reply to this email and tell us. It
+      helps us more than you'd think.
+    </p>
+    <p style="font-size:14px;color:${TEXT};line-height:1.7;">
+      If you'd still like to pick back up, your data is exactly where you left it.
+    </p>
+    <div style="text-align:center;">
+      ${ctaButton('REACTIVATE MY ACCOUNT', data.billingUrl)}
+    </div>
+    <p style="margin-top:20px;font-size:12px;color:${MUTED};text-align:center;">
+      Or just reply — ${esc(data.supportEmail)} reaches a real person.
+    </p>
+  `
+  const text = [
+    `BEFORE YOU GO...`, '',
+    `If BarberBoost wasn't right for ${data.shopName}, reply and tell us why — it helps.`,
+    `Your data is exactly where you left it if you'd like to pick back up: ${data.billingUrl}`,
+  ].join('\n')
+
+  return {
+    subject: `Before you go...`,
+    html:    nurtureEmailShell(content, data.shopName, data.unsubscribeUrl),
     text,
   }
 }

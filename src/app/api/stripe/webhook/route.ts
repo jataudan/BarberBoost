@@ -4,6 +4,8 @@ import { getStripe } from '@/lib/stripe/config'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getPlanByPriceId, PLANS, type PlanId } from '@/lib/stripe/plans'
 import { subscriptionActivated } from '@/lib/email/templates'
+import * as templates from '@/lib/email/templates'
+import { attemptNurtureSend, unsubscribeUrl } from '@/lib/nurture'
 import type Stripe from 'stripe'
 
 export const dynamic = 'force-dynamic'
@@ -162,6 +164,71 @@ async function handleTrialConversionSetup(session: any, supabase: AdminClient) {
   // the existing transition detection) into our DB.
 }
 
+// ── Nurture email hooks (trial_ending / trial_ended / conversion) ─────────
+
+interface ShopEmailContext { shopId: string; shopName: string; ownerName: string; ownerEmail: string }
+
+async function resolveShopEmailContext(supabase: AdminClient, stripeSubscriptionId: string): Promise<ShopEmailContext | null> {
+  const { data: dbSub } = await supabase.from('subscriptions').select('shop_id').eq('stripe_subscription_id', stripeSubscriptionId).maybeSingle()
+  if (!dbSub) return null
+
+  const { data: shop } = await supabase.from('shops').select('id, name, owner_id').eq('id', dbSub.shop_id).maybeSingle()
+  if (!shop) return null
+
+  const { data: userRes } = await supabase.auth.admin.getUserById(shop.owner_id)
+  const ownerEmail = userRes?.user?.email
+  if (!ownerEmail) return null
+
+  return {
+    shopId:    shop.id,
+    shopName:  shop.name,
+    ownerName: (userRes?.user?.user_metadata?.full_name as string | undefined) ?? 'there',
+    ownerEmail,
+  }
+}
+
+/** Webhook-fired nurture sends (trial_ending, trial_ended) go through the same suppression/idempotency pipeline as the cron. */
+async function sendLifecycleEmailForSubscription(
+  supabase: AdminClient,
+  stripeSubscriptionId: string,
+  emailKey: string,
+  build: (ctx: ShopEmailContext) => Promise<{ subject: string; html: string; text?: string }> | { subject: string; html: string; text?: string },
+) {
+  const ctx = await resolveShopEmailContext(supabase, stripeSubscriptionId)
+  if (!ctx) {
+    console.error(`[webhook] ${emailKey}: could not resolve shop/owner for subscription ${stripeSubscriptionId}`)
+    return
+  }
+  const result = await attemptNurtureSend(ctx.shopId, ctx.ownerEmail, emailKey, () => build(ctx))
+  console.log(`[webhook] ${emailKey} for shop=${ctx.shopId}: ${result.sent ? 'sent' : `skipped (${result.reason})`}`)
+}
+
+/** Transactional (not nurture) — reuses the same template the direct-Checkout path sends, bypassing opt-out/48h suppression like any other billing confirmation. */
+async function sendConversionConfirmation(supabase: AdminClient, sub: Stripe.Subscription) {
+  const ctx = await resolveShopEmailContext(supabase, sub.id)
+  if (!ctx) return
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const s = sub as any
+    const priceId = s.items.data[0].price.id
+    const plan    = getPlanByPriceId(priceId)
+    if (!plan) return
+
+    const APP_URL   = process.env.NEXT_PUBLIC_APP_URL ?? 'https://barberboost.app'
+    const planLabel = plan.charAt(0).toUpperCase() + plan.slice(1)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const isAnnual  = Object.values(PLANS).some(p => (p as any).annualPriceId === priceId)
+    const periodEnd = new Date(s.current_period_end * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+
+    const tmpl = subscriptionActivated({ ownerName: ctx.ownerName, plan: planLabel, billing: isAnnual ? 'Annual' : 'Monthly', periodEnd, dashboardUrl: APP_URL + '/dashboard' })
+    const { resend, FROM } = await getResend()
+    await resend.emails.send({ from: FROM, to: ctx.ownerEmail, ...tmpl })
+  } catch (err) {
+    console.error(`[webhook] conversion confirmation email error for shop=${ctx.shopId}:`, err)
+  }
+}
+
 // ── Event processing (runs in after(), off the response path) ─────────────
 
 async function processStripeEvent(event: Stripe.Event, supabase: AdminClient) {
@@ -285,8 +352,18 @@ async function processStripeEvent(event: Stripe.Event, supabase: AdminClient) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sub = event.data.object as any
       console.log(`[webhook] trial_will_end subId=${sub.id} trial_end=${sub.trial_end}`)
-      // TODO(Phase 5): queue the `trial_ending` lifecycle email — 3 days left,
-      // what happens next, reassurance that data is kept.
+      await sendLifecycleEmailForSubscription(supabase, sub.id, 'trial_ending', async ({ shopName, ownerName, shopId }) => {
+        const trialEndDate = sub.trial_end
+          ? new Date(sub.trial_end * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+          : 'in 3 days'
+        return templates.trialEndingSoon({
+          shopName, ownerName,
+          dashboardUrl:   `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://barberboost.app'}/dashboard`,
+          unsubscribeUrl: unsubscribeUrl(shopId),
+          billingUrl:     `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://barberboost.app'}/settings/billing`,
+          trialEndDate,
+        })
+      })
       break
     }
 
@@ -317,13 +394,27 @@ async function processStripeEvent(event: Stripe.Event, supabase: AdminClient) {
 
       if (isConversion) {
         console.log(`[webhook] trial converted → converted_at set for subId=${sub.id}`)
-        // TODO(Phase 5): fire the conversion email and cancel every remaining
-        // trial/win-back nurture send queued for this shop.
+        // "Cancel every remaining trial/win-back send" needs no separate
+        // bookkeeping: the nurture cron only ever selects subscriptions with
+        // converted_at IS NULL, so setting it above already removes this shop
+        // from consideration on every future run.
+        // The confirmation email itself reuses the same transactional
+        // subscriptionActivated template the direct-checkout path sends
+        // below — it's the same "you're on plan X now" event either way, so
+        // it bypasses the nurture opt-out/48h suppression like any other
+        // billing confirmation.
+        await sendConversionConfirmation(supabase, sub)
       }
       if (isPausing) {
         console.log(`[webhook] trial paused (no payment method) → paused_at set for subId=${sub.id}`)
-        // TODO(Phase 5): fire the `trial_ended` email — account is read-only,
-        // data is safe, one click to reactivate.
+        await sendLifecycleEmailForSubscription(supabase, sub.id, 'trial_ended', ({ shopName, ownerName, shopId }) =>
+          templates.trialEndedPaused({
+            shopName, ownerName,
+            dashboardUrl:   `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://barberboost.app'}/dashboard`,
+            unsubscribeUrl: unsubscribeUrl(shopId),
+            billingUrl:     `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://barberboost.app'}/settings/billing`,
+          })
+        )
       }
       if (isReactivating) {
         console.log(`[webhook] shop reactivated from ${previousStatus} for subId=${sub.id}`)
