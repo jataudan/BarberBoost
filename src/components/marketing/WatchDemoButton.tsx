@@ -2,9 +2,9 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { Play, X, Bell } from 'lucide-react'
+import { Play, X } from 'lucide-react'
 
-function DemoComingSoonModal({ onClose }: { onClose: () => void }) {
+function DemoModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
@@ -34,32 +34,16 @@ function DemoComingSoonModal({ onClose }: { onClose: () => void }) {
             <X className="w-4 h-4" />
           </button>
 
-          {/* Video placeholder area */}
-          <div className="relative bg-[#0a0a0a] mx-5 mt-5 rounded-2xl overflow-hidden aspect-video flex items-center justify-center border border-white/[0.06]">
-            {/* Subtle gradient */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#c9a84c]/5 via-transparent to-[#c9a84c]/3" />
-
-            {/* Decorative scissor watermark */}
-            <svg
-              viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="0.8"
-              strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
-              className="absolute inset-0 w-full h-full text-[#c9a84c]/5 scale-150"
-            >
-              <circle cx="16" cy="16" r="10" />
-              <circle cx="16" cy="48" r="10" />
-              <line x1="24" y1="22" x2="56" y2="8" />
-              <line x1="24" y1="42" x2="56" y2="56" />
-            </svg>
-
-            {/* Play button */}
-            <div className="relative flex flex-col items-center gap-3">
-              <div className="w-16 h-16 rounded-full border-2 border-[#c9a84c]/40 bg-[#c9a84c]/10 flex items-center justify-center group-hover:bg-[#c9a84c]/20 transition-colors">
-                <Play className="w-6 h-6 text-[#c9a84c] fill-[#c9a84c] ml-0.5" />
-              </div>
-              <span className="text-[11px] text-zinc-600 font-medium tracking-widest uppercase">
-                Coming Soon
-              </span>
-            </div>
+          {/* Video */}
+          <div className="relative bg-[#0a0a0a] mx-5 mt-5 rounded-2xl overflow-hidden aspect-video border border-white/[0.06]">
+            <video
+              src="/videos/walkthrough.webm"
+              controls
+              autoPlay
+              muted
+              playsInline
+              className="w-full h-full object-cover"
+            />
           </div>
 
           {/* Content */}
@@ -74,34 +58,25 @@ function DemoComingSoonModal({ onClose }: { onClose: () => void }) {
                 DEMO VIDEO
               </h2>
               <p className="text-[#c9a84c] font-semibold text-sm tracking-widest uppercase">
-                Coming Soon
+                See It In Action
               </p>
             </div>
 
             <p className="text-sm text-zinc-500 leading-relaxed max-w-xs mx-auto">
-              We&apos;re putting the finishing touches on a full walkthrough of the platform.
-              Sign up free and explore it yourself in the meantime.
+              A real walkthrough — booking a client, confirming appointments, and running the dashboard.
             </p>
 
             {/* Divider */}
             <div className="h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
 
             {/* Actions */}
-            <div className="flex flex-col sm:flex-row items-stretch gap-2.5 pt-1">
+            <div className="pt-1">
               <a
                 href="/signup"
-                className="flex-1 flex items-center justify-center gap-2 bg-[#c9a84c] hover:bg-[#e2bf6a] text-[#0a0a0a] font-bold text-sm px-5 py-3 rounded-xl transition-colors"
+                className="flex items-center justify-center gap-2 w-full bg-[#c9a84c] hover:bg-[#e2bf6a] text-[#0a0a0a] font-bold text-sm px-5 py-3 rounded-xl transition-colors"
               >
                 Try It Free
               </a>
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 flex items-center justify-center gap-2 border border-white/[0.08] hover:border-white/[0.15] text-zinc-400 hover:text-white text-sm px-5 py-3 rounded-xl transition-colors"
-              >
-                <Bell className="w-3.5 h-3.5" />
-                Notify Me
-              </button>
             </div>
           </div>
         </div>
@@ -126,7 +101,7 @@ export function WatchDemoButton() {
         Watch Demo
       </button>
 
-      {open && <DemoComingSoonModal onClose={() => setOpen(false)} />}
+      {open && <DemoModal onClose={() => setOpen(false)} />}
     </>
   )
 }
