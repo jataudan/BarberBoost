@@ -92,8 +92,10 @@ async function syncSubscriptionFromStripe(supabase: AdminClient, sub: any) {
 
 // ── Trial conversion / reactivation (mode:'setup' Checkout sessions) ──────
 
+// Exported (in addition to the route's HTTP handlers) so tests can call
+// these directly rather than round-tripping through signature verification.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function handleTrialConversionSetup(session: any, supabase: AdminClient) {
+export async function handleTrialConversionSetup(session: any, supabase: AdminClient) {
   const { userId, shopId, planId, flow } = (session.metadata ?? {}) as Record<string, string | undefined>
 
   console.log(`[webhook] checkout.session.completed (setup) userId=${userId} shopId=${shopId} planId=${planId} flow=${flow}`)
@@ -231,7 +233,7 @@ async function sendConversionConfirmation(supabase: AdminClient, sub: Stripe.Sub
 
 // ── Event processing (runs in after(), off the response path) ─────────────
 
-async function processStripeEvent(event: Stripe.Event, supabase: AdminClient) {
+export async function processStripeEvent(event: Stripe.Event, supabase: AdminClient) {
   switch (event.type) {
     case 'checkout.session.completed': {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
